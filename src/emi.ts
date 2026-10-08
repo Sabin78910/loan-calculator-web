@@ -29,3 +29,8 @@ export function toCsv(rows: Row[]): string {
   const lines = rows.map((r) => [r.month, r.principal.toFixed(2), r.interest.toFixed(2), r.balance.toFixed(2)].join(","));
   return ["Month,Principal,Interest,Balance", ...lines].join("\n") + "\n";
 }
+
+export function breakdown(result: EmiResult, principal: number): { principalPct: number; interestPct: number } {
+  const principalPct = (principal / result.totalPayment) * 100;
+  return { principalPct, interestPct: 100 - principalPct };
+}
