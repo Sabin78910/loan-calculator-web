@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { calculateEmi, money, schedule } from "./emi";
+import { calculateEmi, money, schedule, toCsv } from "./emi";
 
 export default function App() {
   const [principal, setPrincipal] = useState("500000");
@@ -14,6 +14,15 @@ export default function App() {
       return { result: null, rows: [], error: (e as Error).message };
     }
   }, [principal, rate, months]);
+
+  const downloadCsv = () => {
+    const url = URL.createObjectURL(new Blob([toCsv(rows)], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "loan-schedule.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <main>
@@ -31,6 +40,7 @@ export default function App() {
             <p>Total interest: NPR {money(result.totalInterest)}</p>
             <p>Total payment: NPR {money(result.totalPayment)}</p>
           </section>
+          <button type="button" onClick={downloadCsv}>Download CSV</button>
           <table className="card">
             <thead><tr><th>Month</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
             <tbody>

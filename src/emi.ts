@@ -24,3 +24,8 @@ export function schedule(principal: number, annualRate: number, months: number):
 }
 
 export const money = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+
+export function toCsv(rows: Row[]): string {
+  const lines = rows.map((r) => [r.month, r.principal.toFixed(2), r.interest.toFixed(2), r.balance.toFixed(2)].join(","));
+  return ["Month,Principal,Interest,Balance", ...lines].join("\n") + "\n";
+}
