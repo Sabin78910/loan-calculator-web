@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
+import { breakdown, calculateEmi } from "./emi";
 
 test("shows EMI and validation error", async () => {
   render(<App />);
@@ -22,4 +23,13 @@ test("download CSV button saves loan-schedule.csv", async () => {
   expect(name).toBe("loan-schedule.csv");
   expect(createObjectURL).toHaveBeenCalledTimes(1);
   click.mockRestore();
+});
+
+test("shows principal vs interest breakdown with percentages", () => {
+  render(<App />);
+  const bar = screen.getByRole("img", { name: /principal .*% and interest .*%/i });
+  const { principalPct, interestPct } = breakdown(calculateEmi(500000, 12, 60), 500000);
+  expect(bar).toHaveAttribute("aria-label", `Principal ${principalPct.toFixed(1)}% and interest ${interestPct.toFixed(1)}% of total payment`);
+  expect(screen.getByText(`Principal ${principalPct.toFixed(1)}%`)).toBeInTheDocument();
+  expect(screen.getByText(`Interest ${interestPct.toFixed(1)}%`)).toBeInTheDocument();
 });

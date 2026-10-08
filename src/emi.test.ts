@@ -1,4 +1,4 @@
-import { calculateEmi, schedule, toCsv } from "./emi";
+import { breakdown, calculateEmi, schedule, toCsv } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -22,4 +22,15 @@ test("toCsv outputs header and plain rounded rows", () => {
 });
 test("toCsv with no rows is header only", () => {
   expect(toCsv([])).toBe("Month,Principal,Interest,Balance\n");
+});
+
+describe("breakdown", () => {
+  it("splits total payment into principal and interest percentages", () => {
+    const b = breakdown(calculateEmi(100000, 12, 12), 100000);
+    expect(b.principalPct + b.interestPct).toBeCloseTo(100, 10);
+    expect(b.interestPct).toBeCloseTo(6.21, 2);
+  });
+  it("is 100% principal at zero rate", () => {
+    expect(breakdown(calculateEmi(1000, 0, 10), 1000)).toEqual({ principalPct: 100, interestPct: 0 });
+  });
 });
