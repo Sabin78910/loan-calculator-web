@@ -24,3 +24,6 @@ ul.list li { display: flex; justify-content: space-between; align-items: center;
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: right; padding: 6px; border-bottom: 1px solid var(--border); }
 th:first-child, td:first-child { text-align: left; }
+.split-bar { display: flex; height: 16px; border-radius: 8px; overflow: hidden; background: var(--border); }
+.split-principal { background: var(--accent); }
+.split-interest { background: var(--danger); }

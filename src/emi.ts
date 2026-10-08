@@ -24,3 +24,9 @@ export function schedule(principal: number, annualRate: number, months: number):
 }
 
 export const money = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+
+export function breakdown(principal: number, annualRate: number, months: number) {
+  const { totalPayment, totalInterest } = calculateEmi(principal, annualRate, months);
+  const interestPct = (totalInterest / totalPayment) * 100;
+  return { principalPct: 100 - interestPct, interestPct };
+}
