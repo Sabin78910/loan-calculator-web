@@ -301,3 +301,38 @@ test("print summary lists inputs and the yearly schedule", async () => {
   expect(within(summary).getByRole("table", { name: "Yearly summary schedule", hidden: true })).toBeInTheDocument();
   expect(within(summary).getAllByRole("row", { hidden: true })).toHaveLength(1 + 5);
 });
+
+describe("language switch", () => {
+  beforeEach(() => { localStorage.clear(); document.documentElement.lang = "en"; });
+
+  test("defaults to English and switches all text, aria labels and numbers to Nepali", async () => {
+    render(<App />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Loan Calculator");
+    await userEvent.click(screen.getByRole("button", { name: "नेपाली" }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("ऋण क्याल्कुलेटर");
+    expect(screen.getByLabelText("ऋण रकम स्लाइडर")).toBeInTheDocument();
+    expect(screen.getByLabelText("सारांश")).toHaveTextContent(/[०-९]/);
+    expect(screen.getByRole("table", { name: "मासिक भुक्तानी तालिका" })).toBeInTheDocument();
+    expect(document.documentElement.lang).toBe("ne");
+    await userEvent.click(screen.getByRole("button", { name: "EN" }));
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Loan Calculator");
+  });
+
+  test("choice persists in localStorage across renders", async () => {
+    const { unmount } = render(<App />);
+    await userEvent.click(screen.getByRole("button", { name: "नेपाली" }));
+    expect(localStorage.getItem("lang")).toBe("ne");
+    unmount();
+    render(<App />);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("ऋण क्याल्कुलेटर");
+  });
+
+  test("translates validation errors", async () => {
+    localStorage.setItem("lang", "ne");
+    render(<App />);
+    const months = screen.getByLabelText("अवधि (महिना)", { selector: "input:not([type=range])" });
+    await userEvent.clear(months);
+    await userEvent.type(months, "0");
+    expect(screen.getByRole("alert")).toHaveTextContent("अवधि कम्तीमा १ महिना हुनुपर्छ");
+  });
+});
