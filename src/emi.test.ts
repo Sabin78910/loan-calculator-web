@@ -1,4 +1,4 @@
-import { balanceChartData, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate } from "./emi";
+import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -148,4 +148,21 @@ test("payoffDate adds whole months to the start date", () => {
   expect(payoffDate(new Date(2026, 0, 15), 60)).toEqual(new Date(2031, 0, 15));
   expect(payoffDate(new Date(2026, 10, 15), 3)).toEqual(new Date(2027, 1, 15));
   expect(payoffDate(new Date(2026, 0, 31), 1)).toEqual(new Date(2026, 1, 28));
+});
+
+describe("donutArcs", () => {
+  it("splits the circumference by percentage", () => {
+    const c = 2 * Math.PI * 40;
+    const a = donutArcs(75, 25, 40);
+    expect(a.circumference).toBeCloseTo(c);
+    expect(a.principal.length).toBeCloseTo(c * 0.75);
+    expect(a.interest.length).toBeCloseTo(c * 0.25);
+    expect(a.principal.offset).toBe(0);
+    expect(a.interest.offset).toBeCloseTo(-c * 0.75);
+  });
+  it("handles a zero-interest loan", () => {
+    const a = donutArcs(100, 0, 40);
+    expect(a.interest.length).toBe(0);
+    expect(a.principal.length).toBeCloseTo(a.circumference);
+  });
 });

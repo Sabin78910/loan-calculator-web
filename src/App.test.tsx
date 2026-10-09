@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { breakdown, calculateEmi, maxLoan, extraSavings, money, schedule } from "./emi";
@@ -226,4 +226,30 @@ test("savings badge counts up to the final value when motion is allowed", async 
   expect(badge).toHaveAccessibleName(`You save NPR ${money(s.interestSaved)} and finish ${s.monthsSaved} months early`);
   await vi.waitFor(() => expect(badge).toHaveTextContent(`NPR ${money(s.interestSaved)}`), { timeout: 2000 });
   vi.unstubAllGlobals();
+});
+
+test("results card shows donut chart with legend", () => {
+  render(<App />);
+  const summary = screen.getByLabelText("Summary");
+  const donut = within(summary).getByRole("img", { name: /principal .*% and interest .*%/i });
+  expect(donut.querySelectorAll("circle[data-arc]")).toHaveLength(2);
+  expect(within(summary).getByText(/^Principal \d/)).toBeInTheDocument();
+  expect(within(summary).getByText(/^Interest \d/)).toBeInTheDocument();
+});
+
+test("balance chart shows value tooltip on hover and focus", async () => {
+  render(<App />);
+  const pts = screen.getAllByTestId("chart-point");
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  await userEvent.hover(pts[1]);
+  expect(screen.getByRole("tooltip")).toHaveTextContent(/Year 1/);
+  await userEvent.unhover(pts[1]);
+  expect(screen.queryByRole("tooltip")).toBeNull();
+  act(() => pts[2].focus());
+  expect(screen.getByRole("tooltip")).toHaveTextContent(/Year 2/);
+});
+
+test("schedule table is sticky and zebra striped", () => {
+  render(<App />);
+  expect(screen.getByRole("table", { name: "Monthly payment schedule" }).closest(".schedule")).not.toBeNull();
 });

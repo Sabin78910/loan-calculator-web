@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { balanceChartData, breakdown, calculateEmi, compareLoans, extraSavings, groupByYear, maxLoan, money, monthlyCost, payoffDate, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, money, monthlyCost, payoffDate, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
@@ -41,22 +41,66 @@ function BalanceChart({ points }: { points: ChartPoint[] }) {
     `${points.map((p) => `${x(p.year)},${y(f(p))}`).join(" ")} ${x(lastYear)},${y(0)} ${x(0)},${y(0)}`;
   const line = points.map((p) => `${x(p.year)},${y(p.balance)}`).join(" ");
   const first = points[0], last = points[points.length - 1];
+  const [active, setActive] = useState<number | null>(null);
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
+  const tip = active === null ? null : points[active];
   const summary = `Loan balance over time: falls from NPR ${money(first.balance)} to NPR ${money(last.balance)} over ${last.year} years, paying NPR ${money(last.principalPaid)} principal and NPR ${money(last.interestPaid)} interest.`;
   return (
     <section className="card" aria-label="Balance over time">
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={summary}>
-        <polygon points={area((p) => p.balance)} fill="#2563eb" fillOpacity="0.25" />
+        <defs>
+          <linearGradient id="balance-fill" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#2563eb" stopOpacity="0.5" />
+            <stop offset="100%" stopColor="#2563eb" stopOpacity="0.02" />
+          </linearGradient>
+        </defs>
+        {ticks.map((t) => <line key={t} className="gridline" x1={PAD} x2={W - PAD} y1={y(maxY * t)} y2={y(maxY * t)} stroke="currentColor" strokeOpacity="0.15" />)}
+        <polygon points={area((p) => p.balance)} fill="url(#balance-fill)" />
         <polygon points={area((p) => p.interestPaid)} fill="#dc2626" fillOpacity="0.25" />
         <polyline points={line} fill="none" stroke="#2563eb" strokeWidth="2" />
         <line x1={PAD} y1={y(0)} x2={W - PAD} y2={y(0)} stroke="currentColor" />
+        {points.map((p, i) => (
+          <circle
+            key={p.year} data-testid="chart-point" cx={x(p.year)} cy={y(p.balance)} r={active === i ? 6 : 4} fill="#2563eb" tabIndex={0}
+            aria-label={`Year ${p.year}: balance NPR ${money(p.balance)}, interest paid NPR ${money(p.interestPaid)}`}
+            onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(i)} onBlur={() => setActive(null)}
+          />
+        ))}
         <text x={PAD} y={H - 6} fontSize="10" fill="currentColor">Year 0</text>
         <text x={W - PAD} y={H - 6} fontSize="10" fill="currentColor" textAnchor="end">Year {last.year}</text>
       </svg>
+      <div className="tooltip-slot">
+        {tip && <div role="tooltip" className="tooltip">Year {tip.year}: balance NPR {money(tip.balance)}, interest NPR {money(tip.interestPaid)}</div>}
+      </div>
       <p className="row" style={{ justifyContent: "space-between", marginBottom: 0 }}>
         <span>Remaining principal (blue)</span>
         <span>Cumulative interest (red)</span>
       </p>
     </section>
+  );
+}
+
+function Donut({ principalPct, interestPct }: { principalPct: number; interestPct: number }) {
+  const R = 40;
+  const arcs = donutArcs(principalPct, interestPct, R);
+  const circle = (key: "principal" | "interest", cls: string) => (
+    <circle
+      data-arc={key} className={cls} cx="60" cy="60" r={R} fill="none" strokeWidth="16"
+      strokeDasharray={`${arcs[key].length} ${arcs.circumference - arcs[key].length}`}
+      strokeDashoffset={arcs[key].offset} transform="rotate(-90 60 60)"
+    />
+  );
+  return (
+    <div className="donut">
+      <svg viewBox="0 0 120 120" width="140" height="140" role="img" aria-label={`Principal ${principalPct.toFixed(1)}% and interest ${interestPct.toFixed(1)}% of total payment`}>
+        {circle("principal", "donut-principal")}
+        {circle("interest", "donut-interest")}
+      </svg>
+      <ul className="legend">
+        <li><span className="swatch donut-principal-bg" aria-hidden="true" /><span>Principal {principalPct.toFixed(1)}%</span></li>
+        <li><span className="swatch donut-interest-bg" aria-hidden="true" /><span>Interest {interestPct.toFixed(1)}%</span></li>
+      </ul>
+    </div>
   );
 }
 
@@ -240,6 +284,7 @@ export default function App() {
             {savings && savings.monthsSaved > 0 && (
               <SavingsBadge interestSaved={savings.interestSaved} monthsSaved={savings.monthsSaved} />
             )}
+            {split && <Donut principalPct={split.principalPct} interestPct={split.interestPct} />}
           </section>
       )}
       </aside>
@@ -256,20 +301,6 @@ export default function App() {
               <p>Fees: NPR {money(cost.value.fee)}</p>
             </section>
           )}
-          <section className="card" aria-label="Payment breakdown">
-            <div
-              className="breakdown"
-              role="img"
-              aria-label={`Principal ${split.principalPct.toFixed(1)}% and interest ${split.interestPct.toFixed(1)}% of total payment`}
-            >
-              <span className="breakdown-principal" style={{ width: `${split.principalPct}%` }} />
-              <span className="breakdown-interest" style={{ width: `${split.interestPct}%` }} />
-            </div>
-            <p className="row" style={{ justifyContent: "space-between", marginBottom: 0 }}>
-              <span>Principal {split.principalPct.toFixed(1)}%</span>
-              <span>Interest {split.interestPct.toFixed(1)}%</span>
-            </p>
-          </section>
           <BalanceChart points={balanceChartData(rows, Number(principal))} />
           <button type="button" onClick={downloadCsv}>Download CSV</button>
           <div className="row">
@@ -277,7 +308,8 @@ export default function App() {
             <button type="button" aria-pressed={view === "yearly"} onClick={() => setView("yearly")}>Yearly</button>
           </div>
           {view === "monthly" ? (
-            <table className="card">
+            <div className="schedule card">
+            <table>
               <caption>Monthly payment schedule</caption>
               <thead><tr><th scope="col">Month</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Extra</th><th scope="col">Balance</th></tr></thead>
               <tbody>
@@ -286,8 +318,10 @@ export default function App() {
                 ))}
               </tbody>
             </table>
+            </div>
           ) : (
-            <table className="card">
+            <div className="schedule card">
+            <table>
               <caption>Yearly payment schedule</caption>
               <thead><tr><th scope="col">Year</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Balance</th></tr></thead>
               <tbody>
@@ -296,6 +330,7 @@ export default function App() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </>
       )}

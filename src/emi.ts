@@ -113,3 +113,13 @@ export function payoffDate(start: Date, months: number): Date {
   d.setDate(Math.min(start.getDate(), last));
   return d;
 }
+
+export interface DonutArc { length: number; offset: number; }
+
+/** Stroke-dasharray geometry for a two-segment donut of radius `r`. */
+export function donutArcs(principalPct: number, interestPct: number, r: number): { circumference: number; principal: DonutArc; interest: DonutArc } {
+  const circumference = 2 * Math.PI * r;
+  const principal = (circumference * principalPct) / 100;
+  const interest = (circumference * interestPct) / 100;
+  return { circumference, principal: { length: principal, offset: 0 }, interest: { length: interest, offset: -principal } };
+}
