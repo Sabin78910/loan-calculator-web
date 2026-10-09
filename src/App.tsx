@@ -1,10 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { breakdown, calculateEmi, money, schedule, toCsv } from "./emi";
+import { parseInputs, serializeInputs } from "./shareUrl";
+
+const DEFAULTS = { principal: "500000", rate: "12", months: "60" };
 
 export default function App() {
-  const [principal, setPrincipal] = useState("500000");
-  const [rate, setRate] = useState("12");
-  const [months, setMonths] = useState("60");
+  const [initial] = useState(() => parseInputs(window.location.search, DEFAULTS));
+  const [principal, setPrincipal] = useState(initial.principal);
+  const [rate, setRate] = useState(initial.rate);
+  const [months, setMonths] = useState(initial.months);
+
+  useEffect(() => {
+    window.history.replaceState(null, "", serializeInputs({ principal, rate, months }));
+  }, [principal, rate, months]);
 
   const { result, rows, error } = useMemo(() => {
     try {
