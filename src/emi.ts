@@ -86,3 +86,12 @@ export function breakdown(result: EmiResult, principal: number): { principalPct:
   const principalPct = (principal / result.totalPayment) * 100;
   return { principalPct, interestPct: 100 - principalPct };
 }
+
+export interface LoanTerms { principal: number; rate: number; months: number; }
+
+export function compareLoans(a: LoanTerms, b: LoanTerms): { a: EmiResult; b: EmiResult; cheaper: "A" | "B" | "tie" } {
+  const ra = calculateEmi(a.principal, a.rate, a.months);
+  const rb = calculateEmi(b.principal, b.rate, b.months);
+  const diff = Math.round((ra.totalPayment - rb.totalPayment) * 100);
+  return { a: ra, b: rb, cheaper: diff < 0 ? "A" : diff > 0 ? "B" : "tie" };
+}

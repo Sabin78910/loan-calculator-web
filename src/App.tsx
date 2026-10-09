@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { balanceChartData, breakdown, calculateEmi, extraSavings, groupByYear, maxLoan, money, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, compareLoans, extraSavings, groupByYear, maxLoan, money, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
@@ -34,6 +34,52 @@ function BalanceChart({ points }: { points: ChartPoint[] }) {
   );
 }
 
+function Compare() {
+  const [a, setA] = useState({ principal: "500000", rate: "12", months: "60" });
+  const [b, setB] = useState({ principal: "500000", rate: "10", months: "60" });
+  const { cmp, error } = useMemo(() => {
+    try {
+      const t = (v: typeof a) => ({ principal: Number(v.principal), rate: Number(v.rate), months: Number(v.months) });
+      return { cmp: compareLoans(t(a), t(b)), error: null };
+    } catch (e) {
+      return { cmp: null, error: (e as Error).message };
+    }
+  }, [a, b]);
+  const field = (name: "A" | "B", state: typeof a, set: (v: typeof a) => void) => (
+    <div className="card">
+      <h2 style={{ marginTop: 0 }}>Loan {name}</h2>
+      <label>Loan {name} amount (NPR)<input inputMode="decimal" value={state.principal} onChange={(e) => set({ ...state, principal: e.target.value })} /></label>
+      <label>Loan {name} interest rate (% per year)<input inputMode="decimal" value={state.rate} onChange={(e) => set({ ...state, rate: e.target.value })} /></label>
+      <label>Loan {name} tenure (months)<input inputMode="numeric" value={state.months} onChange={(e) => set({ ...state, months: e.target.value })} /></label>
+    </div>
+  );
+  const cell = (who: "A" | "B", v: string) => <td className={cmp?.cheaper === who ? "highlight" : undefined}>{v}</td>;
+  return (
+    <>
+      {field("A", a, setA)}
+      {field("B", b, setB)}
+      {error && <p className="error" role="alert">{error}</p>}
+      {cmp && (
+        <table className="card" aria-live="polite">
+          <caption>Loan comparison</caption>
+          <thead>
+            <tr>
+              <th scope="col">Measure</th>
+              <th scope="col">Loan A{cmp.cheaper === "A" ? " (cheaper)" : ""}</th>
+              <th scope="col">Loan B{cmp.cheaper === "B" ? " (cheaper)" : ""}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><th scope="row">Monthly payment</th><td>{money(cmp.a.emi)}</td><td>{money(cmp.b.emi)}</td></tr>
+            <tr><th scope="row">Total interest</th><td>{money(cmp.a.totalInterest)}</td><td>{money(cmp.b.totalInterest)}</td></tr>
+            <tr><th scope="row">Total cost</th>{cell("A", money(cmp.a.totalPayment))}{cell("B", money(cmp.b.totalPayment))}</tr>
+          </tbody>
+        </table>
+      )}
+    </>
+  );
+}
+
 export default function App() {
   const [initial] = useState(() => parseInputs(window.location.search, DEFAULTS));
   const [principal, setPrincipal] = useState(initial.principal);
@@ -42,7 +88,7 @@ export default function App() {
   const [extra, setExtra] = useState(initial.extra);
   const [lump, setLump] = useState(initial.lump);
   const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
-  const [tab, setTab] = useState<"emi" | "afford">("emi");
+  const [tab, setTab] = useState<"emi" | "afford" | "compare">("emi");
   const [payment, setPayment] = useState("");
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
@@ -90,7 +136,9 @@ export default function App() {
       <div className="row" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "emi"} onClick={() => setTab("emi")}>EMI</button>
         <button type="button" role="tab" aria-selected={tab === "afford"} onClick={() => setTab("afford")}>Affordability</button>
+        <button type="button" role="tab" aria-selected={tab === "compare"} onClick={() => setTab("compare")}>Compare</button>
       </div>
+      {tab === "compare" && <Compare />}
       {tab === "afford" && (
         <>
           <div className="card">
