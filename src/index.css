@@ -44,3 +44,15 @@ table { display: block; overflow-x: auto; }
   .layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
   .results { order: 0; position: sticky; top: 16px; }
 }
+.segmented { display: inline-flex; gap: 0; padding: 4px; margin-bottom: 16px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; }
+.segmented button { background: none; color: var(--fg); border-radius: 999px; }
+.segmented button[aria-selected="true"] { background: var(--accent); color: #fff; }
+.advanced { margin-top: 8px; }
+.advanced summary { cursor: pointer; color: var(--accent); font-weight: 600; padding: 8px 0; }
+.badge { margin: 0; padding: 10px 14px; border-radius: 999px; background: #dcfce7; color: #14532d; font-weight: 700; font-variant-numeric: tabular-nums; animation: pop 0.4s ease-out; }
+@keyframes pop { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .badge { animation: none; } * { transition: none !important; } }
+@media (prefers-color-scheme: dark) {
+  .badge { background: #064e3b; color: #d1fae5; }
+  .segmented button[aria-selected="true"] { color: var(--navy); }
+}
