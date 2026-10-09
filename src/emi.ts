@@ -33,6 +33,19 @@ export function groupByYear(rows: Row[]): YearRow[] {
   return years;
 }
 
+export interface ChartPoint { year: number; balance: number; principalPaid: number; interestPaid: number; }
+
+export function balanceChartData(rows: Row[], principal: number): ChartPoint[] {
+  const pts: ChartPoint[] = [{ year: 0, balance: principal, principalPaid: 0, interestPaid: 0 }];
+  let principalPaid = 0, interestPaid = 0;
+  for (const y of groupByYear(rows)) {
+    principalPaid += y.principal;
+    interestPaid += y.interest;
+    pts.push({ year: y.year, balance: y.balance, principalPaid, interestPaid });
+  }
+  return pts;
+}
+
 export interface Extras { monthly?: number; lumpSum?: number; lumpMonth?: number; }
 
 export function schedule(principal: number, annualRate: number, months: number, extras: Extras = {}): Row[] {
