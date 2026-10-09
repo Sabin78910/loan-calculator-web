@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { balanceChartData, breakdown, calculateEmi, compareLoans, extraSavings, groupByYear, maxLoan, money, monthlyCost, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, compareLoans, extraSavings, groupByYear, maxLoan, money, monthlyCost, payoffDate, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
@@ -77,6 +77,24 @@ function Compare() {
         </table>
       )}
     </>
+  );
+}
+
+function SliderField({ label, sliderLabel, value, onChange, min, max, step, inputMode, ...aria }: {
+  label: string; sliderLabel: string; value: string; onChange: (v: string) => void;
+  min: number; max: number; step: number; inputMode: "decimal" | "numeric";
+  "aria-invalid"?: boolean; "aria-describedby"?: string;
+}) {
+  const n = Number(value);
+  return (
+    <div className="field">
+      <label>{label}<input inputMode={inputMode} value={value} {...aria} onChange={(e) => onChange(e.target.value)} /></label>
+      <input
+        type="range" className="slider" aria-label={sliderLabel} min={min} max={max} step={step}
+        value={Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
   );
 }
 
@@ -167,10 +185,12 @@ export default function App() {
         </>
       )}
       {tab === "emi" && <>
+      <div className="layout">
+      <div className="inputs">
       <div className="card">
-        <label>Loan amount (NPR)<input inputMode="decimal" value={principal} {...fieldProps("principal")} onChange={(e) => setPrincipal(e.target.value)} /></label>
-        <label>Interest rate (% per year)<input inputMode="decimal" value={rate} {...fieldProps("rate")} onChange={(e) => setRate(e.target.value)} /></label>
-        <label>Tenure (months)<input inputMode="numeric" value={months} {...fieldProps("months")} onChange={(e) => setMonths(e.target.value)} /></label>
+        <SliderField label="Loan amount (NPR)" sliderLabel="Loan amount slider" inputMode="decimal" value={principal} onChange={setPrincipal} min={10000} max={10000000} step={10000} {...fieldProps("principal")} />
+        <SliderField label="Interest rate (% per year)" sliderLabel="Interest rate slider" inputMode="decimal" value={rate} onChange={setRate} min={0} max={30} step={0.1} {...fieldProps("rate")} />
+        <SliderField label="Tenure (months)" sliderLabel="Tenure slider" inputMode="numeric" value={months} onChange={setMonths} min={1} max={360} step={1} {...fieldProps("months")} />
         <label>Monthly extra payment (NPR)<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
         <label>One-time lump sum (NPR)<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>
         <label>Lump sum month<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
@@ -179,16 +199,24 @@ export default function App() {
         <label>Monthly fees (NPR)<input inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></label>
       </div>
       {error && <p id="calc-error" className="error" role="alert">{error}</p>}
-      {result && split && (
-        <>
-          <section className="card" aria-label="Summary" aria-live="polite">
-            <h2 style={{ marginTop: 0 }}>Monthly EMI: NPR {money(result.emi)}</h2>
+      </div>
+      <aside className="results">
+      {result && (
+          <section className="card results-card" aria-label="Summary" aria-live="polite">
+            <p className="muted" style={{ margin: 0 }}>Monthly payment</p>
+            <h2 className="big">Monthly EMI: NPR {money(result.emi)}</h2>
             <p>Total interest: NPR {money(result.totalInterest)}</p>
             <p>Total payment: NPR {money(result.totalPayment)}</p>
+            <p>Payoff date: {payoffDate(new Date(), rows.length).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
             {savings && savings.monthsSaved > 0 && (
               <p className="highlight"><strong>You save NPR {money(savings.interestSaved)} interest and finish {savings.monthsSaved} months early</strong></p>
             )}
           </section>
+      )}
+      </aside>
+      </div>
+      {result && split && (
+        <>
           {cost?.error && <p className="error" role="alert">{cost.error}</p>}
           {cost?.value && (tax || insurance || fee) && (
             <section className="card" aria-label="Full monthly cost" aria-live="polite">

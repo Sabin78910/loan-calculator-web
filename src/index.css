@@ -1,15 +1,18 @@
 :root {
-  --bg: #f6f7fb; --fg: #1d2433; --muted: #5b6475; --card: #ffffff;
-  --accent: #3f51b5; --border: #e2e5ee; --danger: #c62828;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --emerald: #0f766e; --mint: #34d399; --navy: #0f172a;
+  --bg: #f6f8fa; --fg: #0f172a; --muted: #55607a; --card: #ffffff;
+  --accent: var(--emerald); --border: #e2e8f0; --danger: #c62828;
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--fg); background: var(--bg);
 }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #11141b; --fg: #e8ebf2; --muted: #9aa3b5; --card: #1a1f2a; --border: #2a3140; --accent: #8c9eff; }
+  :root { --bg: #0f172a; --fg: #e8ebf2; --muted: #9aa3b5; --card: #172033; --border: #2a3550; --accent: var(--mint); }
+  button { color: var(--navy); }
+  .highlight { background: #0b3b36; }
 }
 * { box-sizing: border-box; }
 body { margin: 0; }
-main { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+main { max-width: 1120px; margin: 0 auto; padding: 24px 16px; }
 h1 { margin-top: 0; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
 label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 8px; }
@@ -28,3 +31,16 @@ th:first-child, td:first-child { text-align: left; }
 .breakdown-principal { background: var(--accent); }
 .breakdown-interest { background: var(--muted); }
 .highlight { background: #e6f4ea; padding: 0.5rem; border-radius: 4px; }
+.layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 24px; align-items: start; }
+.results { order: -1; min-width: 0; }
+.big { font-size: 2rem; margin: 4px 0 12px; color: var(--accent); overflow-wrap: anywhere; }
+.slider { width: 100%; padding: 0; margin: 0 0 12px; accent-color: var(--accent); background: none; }
+.field { margin-bottom: 4px; }
+input:focus-visible, button:focus-visible, .slider:focus-visible { outline: 3px solid var(--mint); outline-offset: 2px; }
+button { background: var(--accent); }
+.inputs, .results, .card { min-width: 0; }
+table { display: block; overflow-x: auto; }
+@media (min-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); }
+  .results { order: 0; position: sticky; top: 16px; }
+}

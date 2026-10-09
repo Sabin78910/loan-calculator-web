@@ -105,3 +105,11 @@ export function monthlyCost(emi: number, extras: MonthlyCostExtras = {}): Monthl
   const tax = yearlyTax / 12, insurance = yearlyInsurance / 12;
   return { emi, tax, insurance, fee: monthlyFee, total: emi + tax + insurance + monthlyFee };
 }
+
+/** Date of the final payment: `months` whole months after `start` (clamped to month end). */
+export function payoffDate(start: Date, months: number): Date {
+  const d = new Date(start.getFullYear(), start.getMonth() + months, 1);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(start.getDate(), last));
+  return d;
+}

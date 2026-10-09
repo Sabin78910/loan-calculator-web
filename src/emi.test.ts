@@ -1,4 +1,4 @@
-import { balanceChartData, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost } from "./emi";
+import { balanceChartData, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -142,4 +142,10 @@ describe("monthlyCost", () => {
     expect(() => monthlyCost(1000, { yearlyTax: -1 })).toThrow("Extra costs cannot be negative");
     expect(() => monthlyCost(1000, { monthlyFee: NaN })).toThrow("Extra costs cannot be negative");
   });
+});
+
+test("payoffDate adds whole months to the start date", () => {
+  expect(payoffDate(new Date(2026, 0, 15), 60)).toEqual(new Date(2031, 0, 15));
+  expect(payoffDate(new Date(2026, 10, 15), 3)).toEqual(new Date(2027, 1, 15));
+  expect(payoffDate(new Date(2026, 0, 31), 1)).toEqual(new Date(2026, 1, 28));
 });
