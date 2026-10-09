@@ -11,6 +11,20 @@ export function calculateEmi(principal: number, annualRate: number, months: numb
   return { emi, totalPayment, totalInterest: totalPayment - principal };
 }
 
+export interface YearRow { year: number; principal: number; interest: number; balance: number; }
+
+export function groupByYear(rows: Row[]): YearRow[] {
+  const years: YearRow[] = [];
+  for (const r of rows) {
+    const year = Math.ceil(r.month / 12);
+    const y = years[year - 1] ?? (years[year - 1] = { year, principal: 0, interest: 0, balance: 0 });
+    y.principal += r.principal;
+    y.interest += r.interest;
+    y.balance = r.balance;
+  }
+  return years;
+}
+
 export function schedule(principal: number, annualRate: number, months: number): Row[] {
   const { emi } = calculateEmi(principal, annualRate, months);
   const r = annualRate / 12 / 100;

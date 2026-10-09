@@ -45,3 +45,13 @@ test("loads inputs from URL and syncs changes back", async () => {
   await userEvent.type(months, "24");
   expect(window.location.search).toBe("?principal=100000&rate=10&months=24");
 });
+
+test("toggles between monthly and yearly schedule", async () => {
+  render(<App />);
+  expect(screen.getAllByRole("row")).toHaveLength(61);
+  await userEvent.click(screen.getByRole("button", { name: "Yearly" }));
+  expect(screen.getByRole("columnheader", { name: "Year" })).toBeInTheDocument();
+  expect(screen.getAllByRole("row")).toHaveLength(6);
+  await userEvent.click(screen.getByRole("button", { name: "Monthly" }));
+  expect(screen.getAllByRole("row")).toHaveLength(61);
+});

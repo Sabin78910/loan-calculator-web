@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { breakdown, calculateEmi, money, schedule, toCsv } from "./emi";
+import { breakdown, calculateEmi, groupByYear, money, schedule, toCsv } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
 const DEFAULTS = { principal: "500000", rate: "12", months: "60" };
@@ -9,6 +9,7 @@ export default function App() {
   const [principal, setPrincipal] = useState(initial.principal);
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
+  const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
     window.history.replaceState(null, "", serializeInputs({ principal, rate, months }));
@@ -65,14 +66,29 @@ export default function App() {
             </p>
           </section>
           <button type="button" onClick={downloadCsv}>Download CSV</button>
-          <table className="card">
-            <thead><tr><th>Month</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.month}><td>{r.month}</td><td>{money(r.principal)}</td><td>{money(r.interest)}</td><td>{money(r.balance)}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="row">
+            <button type="button" aria-pressed={view === "monthly"} onClick={() => setView("monthly")}>Monthly</button>
+            <button type="button" aria-pressed={view === "yearly"} onClick={() => setView("yearly")}>Yearly</button>
+          </div>
+          {view === "monthly" ? (
+            <table className="card">
+              <thead><tr><th>Month</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.month}><td>{r.month}</td><td>{money(r.principal)}</td><td>{money(r.interest)}</td><td>{money(r.balance)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <table className="card">
+              <thead><tr><th>Year</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+              <tbody>
+                {groupByYear(rows).map((y) => (
+                  <tr key={y.year}><td>{y.year}</td><td>{money(y.principal)}</td><td>{money(y.interest)}</td><td>{money(y.balance)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </>
       )}
     </main>
