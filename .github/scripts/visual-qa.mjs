@@ -49,6 +49,9 @@ for (const [name, viewport] of [["phone", { width: 390, height: 844 }], ["deskto
       return out;
     });
     overflow.forEach((o) => problems.push(`${tag}: ${o}`));
+    const broken = await page.evaluate(() =>
+      [...document.images].filter((i) => i.complete && i.naturalWidth === 0).map((i) => `${i.getAttribute("src")} ("${i.alt}")`));
+    broken.slice(0, 5).forEach((b) => problems.push(`${tag}: image failed to load: ${b}`));
     errors.slice(0, 5).forEach((e) => problems.push(`${tag}: JavaScript error: ${e.slice(0, 200)}`));
     await page.screenshot({ path: `shots/${tag}.png`, fullPage: true });
     await ctx.close();
