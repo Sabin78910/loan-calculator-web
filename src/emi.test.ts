@@ -1,4 +1,4 @@
-import { balanceChartData, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv } from "./emi";
+import { balanceChartData, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -112,5 +112,20 @@ describe("balanceChartData", () => {
   });
   it("returns only the origin for no rows", () => {
     expect(balanceChartData([], 1000)).toHaveLength(1);
+  });
+});
+
+describe("compareLoans", () => {
+  it("picks the loan with the lower total cost", () => {
+    const c = compareLoans({ principal: 100000, rate: 10, months: 12 }, { principal: 100000, rate: 12, months: 12 });
+    expect(c.cheaper).toBe("A");
+    expect(c.a.totalInterest).toBeLessThan(c.b.totalInterest);
+  });
+  it("reports a tie for identical loans", () => {
+    const l = { principal: 100000, rate: 10, months: 12 };
+    expect(compareLoans(l, l).cheaper).toBe("tie");
+  });
+  it("throws on invalid input", () => {
+    expect(() => compareLoans({ principal: 0, rate: 10, months: 12 }, { principal: 1, rate: 10, months: 12 })).toThrow();
   });
 });

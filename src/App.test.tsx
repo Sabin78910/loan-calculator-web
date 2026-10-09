@@ -125,3 +125,23 @@ test("renders balance chart as accessible img with text summary", () => {
   expect(chart).toHaveAccessibleName(/5 years/);
   expect(chart.querySelector("polyline")).not.toBeNull();
 });
+
+test("compare tab highlights the cheaper loan", async () => {
+  render(<App />);
+  await userEvent.click(screen.getByRole("tab", { name: "Compare" }));
+  const rate = screen.getByLabelText("Loan B interest rate (% per year)");
+  await userEvent.clear(rate);
+  await userEvent.type(rate, "8");
+  const table = screen.getByRole("table", { name: "Loan comparison" });
+  expect(table).toHaveTextContent("Total cost");
+  expect(screen.getByRole("columnheader", { name: /Loan B.*cheaper/ })).toBeInTheDocument();
+});
+
+test("compare tab shows an error for invalid input", async () => {
+  render(<App />);
+  await userEvent.click(screen.getByRole("tab", { name: "Compare" }));
+  const months = screen.getByLabelText("Loan A tenure (months)");
+  await userEvent.clear(months);
+  await userEvent.type(months, "0");
+  expect(screen.getByRole("alert")).toHaveTextContent("Tenure");
+});
