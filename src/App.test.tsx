@@ -282,3 +282,22 @@ test.each(["EMI", "interest rate", "tenure", "amortization", "prepayment"])("inf
   expect(screen.queryByRole("note")).not.toBeInTheDocument();
   expect(btn).toHaveFocus();
 });
+
+test("Print / Save as PDF button calls window.print", async () => {
+  const print = vi.spyOn(window, "print").mockImplementation(() => {});
+  render(<App />);
+  await userEvent.click(screen.getByRole("button", { name: "Print / Save as PDF" }));
+  expect(print).toHaveBeenCalledTimes(1);
+  print.mockRestore();
+});
+
+test("print summary lists inputs and the yearly schedule", async () => {
+  render(<App />);
+  const summary = screen.getByLabelText("Printable summary", { selector: "section" });
+  expect(summary).toHaveTextContent(`Loan amount: NPR ${money(500000)}`);
+  expect(summary).toHaveTextContent("Interest rate: 12% per year");
+  expect(summary).toHaveTextContent("Tenure: 60 months");
+  await userEvent.click(screen.getByRole("button", { name: "Monthly" }));
+  expect(within(summary).getByRole("table", { name: "Yearly summary schedule", hidden: true })).toBeInTheDocument();
+  expect(within(summary).getAllByRole("row", { hidden: true })).toHaveLength(1 + 5);
+});
