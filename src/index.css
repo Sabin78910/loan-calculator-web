@@ -27,3 +27,4 @@ th:first-child, td:first-child { text-align: left; }
 .breakdown { display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin-bottom: 8px; }
 .breakdown-principal { background: var(--accent); }
 .breakdown-interest { background: var(--muted); }
+.highlight { background: #e6f4ea; padding: 0.5rem; border-radius: 4px; }

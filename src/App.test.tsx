@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
-import { breakdown, calculateEmi } from "./emi";
+import { breakdown, calculateEmi, extraSavings, money, schedule } from "./emi";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
 
@@ -86,4 +86,24 @@ test("invalid input is marked aria-invalid and linked to its error", async () =>
   await userEvent.type(months, "12");
   expect(rate).toHaveAttribute("aria-invalid", "true");
   expect(rate).toHaveAccessibleDescription("Rate cannot be negative");
+});
+
+test("extra payments show savings and appear in the share link", async () => {
+  render(<App />);
+  expect(screen.queryByText(/You save/)).not.toBeInTheDocument();
+  await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "5000");
+  const n = schedule(500000, 12, 60, { monthly: 5000 }).length;
+  const s = extraSavings(500000, 12, 60, { monthly: 5000 });
+  expect(screen.getByText(/You save/)).toHaveTextContent(`You save NPR ${money(s.interestSaved)} interest and finish ${60 - n} months early`);
+  expect(window.location.search).toContain("extra=5000");
+  expect(screen.getAllByRole("row")).toHaveLength(n + 1);
+});
+
+test("lump sum month is validated", async () => {
+  render(<App />);
+  await userEvent.type(screen.getByLabelText("One-time lump sum (NPR)"), "10000");
+  const m = screen.getByLabelText("Lump sum month");
+  await userEvent.clear(m);
+  await userEvent.type(m, "0");
+  expect(screen.getByRole("alert")).toHaveTextContent("Extra");
 });
