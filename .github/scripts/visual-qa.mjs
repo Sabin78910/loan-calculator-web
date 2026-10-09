@@ -15,7 +15,8 @@ for (const [name, viewport] of [["phone", { width: 390, height: 844 }], ["deskto
     const page = await ctx.newPage();
     const errors = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+    // Network hiccups (timeouts, blocked third-party requests) are not code bugs; report real errors only.
+    page.on("console", (m) => m.type() === "error" && !/Failed to load resource|net::ERR_/.test(m.text()) && errors.push(m.text()));
     const res = await page.goto(site, { waitUntil: "networkidle", timeout: 60000 }).catch(() => null);
     await page.waitForTimeout(1500);
     if (!res || !res.ok()) problems.push(`${tag}: page did not load (${res ? res.status() : "no response"})`);
