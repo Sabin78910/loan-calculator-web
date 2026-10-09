@@ -1,30 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
-import { breakdown, calculateEmi, groupByYear, money, schedule, toCsv } from "./emi";
+import { breakdown, calculateEmi, extraSavings, groupByYear, money, schedule, toCsv } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
-const DEFAULTS = { principal: "500000", rate: "12", months: "60" };
+const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1" };
 
 export default function App() {
   const [initial] = useState(() => parseInputs(window.location.search, DEFAULTS));
   const [principal, setPrincipal] = useState(initial.principal);
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
+  const [extra, setExtra] = useState(initial.extra);
+  const [lump, setLump] = useState(initial.lump);
+  const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
-    window.history.replaceState(null, "", serializeInputs({ principal, rate, months }));
-  }, [principal, rate, months]);
+    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth }));
+  }, [principal, rate, months, extra, lump, lumpMonth]);
 
-  const { result, rows, error } = useMemo(() => {
+  const { result, rows, savings, error } = useMemo(() => {
     try {
       const p = Number(principal), r = Number(rate), n = Number(months);
-      return { result: calculateEmi(p, r, n), rows: schedule(p, r, n), error: null };
+      const x = { monthly: Number(extra || 0), lumpSum: Number(lump || 0), lumpMonth: Number(lumpMonth || 1) };
+      return { result: calculateEmi(p, r, n), rows: schedule(p, r, n, x), savings: extraSavings(p, r, n, x), error: null };
     } catch (e) {
-      return { result: null, rows: [], error: (e as Error).message };
+      return { result: null, rows: [], savings: null, error: (e as Error).message };
     }
-  }, [principal, rate, months]);
+  }, [principal, rate, months, extra, lump, lumpMonth]);
 
-  const errorField = error?.startsWith("Principal") ? "principal" : error?.startsWith("Rate") ? "rate" : error ? "months" : null;
+  const errorField = error?.startsWith("Principal") ? "principal" : error?.startsWith("Rate") ? "rate" : error?.startsWith("Extra") ? (error.includes("month") ? "lumpMonth" : "extra") : error ? "months" : null;
   const fieldProps = (name: string) =>
     errorField === name ? { "aria-invalid": true, "aria-describedby": "calc-error" } : {};
 
@@ -46,6 +50,9 @@ export default function App() {
         <label>Loan amount (NPR)<input inputMode="decimal" value={principal} {...fieldProps("principal")} onChange={(e) => setPrincipal(e.target.value)} /></label>
         <label>Interest rate (% per year)<input inputMode="decimal" value={rate} {...fieldProps("rate")} onChange={(e) => setRate(e.target.value)} /></label>
         <label>Tenure (months)<input inputMode="numeric" value={months} {...fieldProps("months")} onChange={(e) => setMonths(e.target.value)} /></label>
+        <label>Monthly extra payment (NPR)<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
+        <label>One-time lump sum (NPR)<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>
+        <label>Lump sum month<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
       </div>
       {error && <p id="calc-error" className="error" role="alert">{error}</p>}
       {result && split && (
@@ -54,6 +61,9 @@ export default function App() {
             <h2 style={{ marginTop: 0 }}>Monthly EMI: NPR {money(result.emi)}</h2>
             <p>Total interest: NPR {money(result.totalInterest)}</p>
             <p>Total payment: NPR {money(result.totalPayment)}</p>
+            {savings && savings.monthsSaved > 0 && (
+              <p className="highlight"><strong>You save NPR {money(savings.interestSaved)} interest and finish {savings.monthsSaved} months early</strong></p>
+            )}
           </section>
           <section className="card" aria-label="Payment breakdown">
             <div
@@ -77,10 +87,10 @@ export default function App() {
           {view === "monthly" ? (
             <table className="card">
               <caption>Monthly payment schedule</caption>
-              <thead><tr><th scope="col">Month</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Balance</th></tr></thead>
+              <thead><tr><th scope="col">Month</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Extra</th><th scope="col">Balance</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.month}><td>{r.month}</td><td>{money(r.principal)}</td><td>{money(r.interest)}</td><td>{money(r.balance)}</td></tr>
+                  <tr key={r.month}><td>{r.month}</td><td>{money(r.principal)}</td><td>{money(r.interest)}</td><td>{money(r.extra)}</td><td>{money(r.balance)}</td></tr>
                 ))}
               </tbody>
             </table>
