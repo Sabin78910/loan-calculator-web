@@ -1,4 +1,3 @@
-/* global process, document, getComputedStyle, console */
 // Opens the live site in a real browser (phone + desktop, light + dark), saves screenshots,
 // and reports layout overflow, load failures and JavaScript errors. Used by visual-qa.yml.
 import fs from "node:fs";
