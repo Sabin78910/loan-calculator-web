@@ -1,4 +1,4 @@
-import { breakdown, calculateEmi, schedule, toCsv } from "./emi";
+import { breakdown, calculateEmi, groupByYear, schedule, toCsv } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -33,4 +33,15 @@ describe("breakdown", () => {
   it("is 100% principal at zero rate", () => {
     expect(breakdown(calculateEmi(1000, 0, 10), 1000)).toEqual({ principalPct: 100, interestPct: 0 });
   });
+});
+
+test("groupByYear sums principal and interest per 12 months", () => {
+  const rows = schedule(500000, 12, 30);
+  const years = groupByYear(rows);
+  expect(years.map((y) => y.year)).toEqual([1, 2, 3]);
+  expect(years[0].principal).toBeCloseTo(rows.slice(0, 12).reduce((s, r) => s + r.principal, 0), 6);
+  expect(years[2].interest).toBeCloseTo(rows.slice(24).reduce((s, r) => s + r.interest, 0), 6);
+  expect(years[0].balance).toBe(rows[11].balance);
+  expect(years[2].balance).toBeCloseTo(0, 2);
+  expect(groupByYear([])).toEqual([]);
 });
