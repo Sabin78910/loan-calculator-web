@@ -1,4 +1,4 @@
-import { breakdown, calculateEmi, extraSavings, groupByYear, schedule, toCsv } from "./emi";
+import { breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -81,4 +81,17 @@ describe("extra payments", () => {
     expect(() => schedule(1000, 10, 6, { lumpSum: 5, lumpMonth: 0 })).toThrow("Extra");
     expect(() => schedule(1000, 10, 6, { lumpSum: 5, lumpMonth: 1.5 })).toThrow("Extra");
   });
+});
+
+test("maxLoan: forward EMI equals the payment", () => {
+  const loan = maxLoan(25000, 10, 120);
+  expect(calculateEmi(loan, 10, 120).emi).toBeCloseTo(25000, 6);
+});
+test("maxLoan handles 0% interest", () => {
+  expect(maxLoan(1000, 0, 12)).toBe(12000);
+});
+test("maxLoan validates input", () => {
+  expect(() => maxLoan(0, 10, 12)).toThrow("Payment must be positive");
+  expect(() => maxLoan(1000, -1, 12)).toThrow("Rate cannot be negative");
+  expect(() => maxLoan(1000, 10, 0)).toThrow("Tenure must be at least 1 month");
 });

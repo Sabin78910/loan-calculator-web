@@ -11,6 +11,14 @@ export function calculateEmi(principal: number, annualRate: number, months: numb
   return { emi, totalPayment, totalInterest: totalPayment - principal };
 }
 
+export function maxLoan(payment: number, annualRate: number, months: number): number {
+  if (!(payment > 0)) throw new Error("Payment must be positive");
+  if (!(annualRate >= 0)) throw new Error("Rate cannot be negative");
+  if (!Number.isInteger(months) || months < 1) throw new Error("Tenure must be at least 1 month");
+  const r = annualRate / 12 / 100;
+  return r === 0 ? payment * months : (payment * ((1 + r) ** months - 1)) / (r * (1 + r) ** months);
+}
+
 export interface YearRow { year: number; principal: number; interest: number; balance: number; }
 
 export function groupByYear(rows: Row[]): YearRow[] {

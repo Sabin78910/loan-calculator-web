@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
-import { breakdown, calculateEmi, extraSavings, money, schedule } from "./emi";
+import { breakdown, calculateEmi, maxLoan, extraSavings, money, schedule } from "./emi";
 
 beforeEach(() => window.history.replaceState(null, "", "/"));
 
@@ -106,4 +106,15 @@ test("lump sum month is validated", async () => {
   await userEvent.clear(m);
   await userEvent.type(m, "0");
   expect(screen.getByRole("alert")).toHaveTextContent("Extra");
+});
+
+test("affordability tab computes maximum loan", async () => {
+  render(<App />);
+  await userEvent.click(screen.getByRole("tab", { name: "Affordability" }));
+  await userEvent.type(screen.getByLabelText("Maximum monthly payment (NPR)"), "25000");
+  await userEvent.clear(screen.getByLabelText("Interest rate (% per year)"));
+  await userEvent.type(screen.getByLabelText("Interest rate (% per year)"), "10");
+  await userEvent.clear(screen.getByLabelText("Tenure (months)"));
+  await userEvent.type(screen.getByLabelText("Tenure (months)"), "120");
+  expect(screen.getByLabelText("Affordability result")).toHaveTextContent(`Maximum loan: NPR ${money(maxLoan(25000, 10, 120))}`);
 });

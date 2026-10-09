@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { breakdown, calculateEmi, extraSavings, groupByYear, money, schedule, toCsv } from "./emi";
+import { breakdown, calculateEmi, extraSavings, groupByYear, maxLoan, money, schedule, toCsv } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
 const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1" };
@@ -12,6 +12,8 @@ export default function App() {
   const [extra, setExtra] = useState(initial.extra);
   const [lump, setLump] = useState(initial.lump);
   const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
+  const [tab, setTab] = useState<"emi" | "afford">("emi");
+  const [payment, setPayment] = useState("");
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
@@ -27,6 +29,15 @@ export default function App() {
       return { result: null, rows: [], savings: null, error: (e as Error).message };
     }
   }, [principal, rate, months, extra, lump, lumpMonth]);
+
+  const afford = useMemo(() => {
+    if (payment === "") return { loan: null, error: null };
+    try {
+      return { loan: maxLoan(Number(payment), Number(rate), Number(months)), error: null };
+    } catch (e) {
+      return { loan: null, error: (e as Error).message };
+    }
+  }, [payment, rate, months]);
 
   const errorField = error?.startsWith("Principal") ? "principal" : error?.startsWith("Rate") ? "rate" : error?.startsWith("Extra") ? (error.includes("month") ? "lumpMonth" : "extra") : error ? "months" : null;
   const fieldProps = (name: string) =>
@@ -46,6 +57,26 @@ export default function App() {
   return (
     <main>
       <h1>Loan Calculator</h1>
+      <div className="row" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === "emi"} onClick={() => setTab("emi")}>EMI</button>
+        <button type="button" role="tab" aria-selected={tab === "afford"} onClick={() => setTab("afford")}>Affordability</button>
+      </div>
+      {tab === "afford" && (
+        <>
+          <div className="card">
+            <label>Maximum monthly payment (NPR)<input inputMode="decimal" value={payment} onChange={(e) => setPayment(e.target.value)} /></label>
+            <label>Interest rate (% per year)<input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></label>
+            <label>Tenure (months)<input inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} /></label>
+          </div>
+          {afford.error && <p className="error" role="alert">{afford.error}</p>}
+          {afford.loan !== null && (
+            <section className="card" aria-label="Affordability result" aria-live="polite">
+              <h2 style={{ marginTop: 0 }}>Maximum loan: NPR {money(afford.loan)}</h2>
+            </section>
+          )}
+        </>
+      )}
+      {tab === "emi" && <>
       <div className="card">
         <label>Loan amount (NPR)<input inputMode="decimal" value={principal} {...fieldProps("principal")} onChange={(e) => setPrincipal(e.target.value)} /></label>
         <label>Interest rate (% per year)<input inputMode="decimal" value={rate} {...fieldProps("rate")} onChange={(e) => setRate(e.target.value)} /></label>
@@ -107,6 +138,7 @@ export default function App() {
           )}
         </>
       )}
+      </>}
     </main>
   );
 }
