@@ -94,7 +94,7 @@ test("extra payments show savings and appear in the share link", async () => {
   await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "5000");
   const n = schedule(500000, 12, 60, { monthly: 5000 }).length;
   const s = extraSavings(500000, 12, 60, { monthly: 5000 });
-  expect(screen.getByText(/You save/)).toHaveTextContent(`You save NPR ${money(s.interestSaved)} interest and finish ${60 - n} months early`);
+  expect(screen.getByText(/You save/)).toHaveTextContent(`You save NPR ${money(s.interestSaved)} and finish ${60 - n} months early`);
   expect(window.location.search).toContain("extra=5000");
   expect(screen.getAllByRole("row")).toHaveLength(n + 1);
 });
@@ -188,4 +188,42 @@ test("results card shows interest, total cost and payoff date", () => {
   expect(card).toHaveTextContent(`Total interest: NPR ${money(r.totalInterest)}`);
   expect(card).toHaveTextContent(`Total payment: NPR ${money(r.totalPayment)}`);
   expect(card).toHaveTextContent(/Payoff date: \w+ \d{4}/);
+});
+
+test("advanced options are collapsed by default and hold extra, lump, tax, insurance and fees", async () => {
+  render(<App />);
+  const details = screen.getByText("Advanced").closest("details")!;
+  expect(details).not.toHaveAttribute("open");
+  ["Monthly extra payment (NPR)", "One-time lump sum (NPR)", "Lump sum month", "Yearly property tax (NPR)", "Yearly insurance (NPR)", "Monthly fees (NPR)"]
+    .forEach((l) => expect(details).toContainElement(screen.getByLabelText(l)));
+  expect(details).not.toContainElement(screen.getByLabelText("Loan amount (NPR)"));
+  await userEvent.click(screen.getByText("Advanced"));
+  expect(details).toHaveAttribute("open");
+});
+
+test("tabs form a segmented control: Calculator, Affordability, Compare", () => {
+  render(<App />);
+  expect(screen.getAllByRole("tab").map((t) => t.textContent)).toEqual(["Calculator", "Affordability", "Compare"]);
+  expect(screen.getByRole("tablist")).toHaveClass("segmented");
+  expect(screen.getByRole("tab", { name: "Calculator" })).toHaveAttribute("aria-selected", "true");
+});
+
+test("savings badge shows the final value without animation when reduced motion is preferred", async () => {
+  vi.stubGlobal("matchMedia", (q: string) => ({ matches: true, media: q, addEventListener() {}, removeEventListener() {} }));
+  render(<App />);
+  await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "5000");
+  const s = extraSavings(500000, 12, 60, { monthly: 5000 });
+  expect(screen.getByRole("status", { name: /You save/ })).toHaveTextContent(`NPR ${money(s.interestSaved)}`);
+  vi.unstubAllGlobals();
+});
+
+test("savings badge counts up to the final value when motion is allowed", async () => {
+  vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} }));
+  render(<App />);
+  await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "5000");
+  const s = extraSavings(500000, 12, 60, { monthly: 5000 });
+  const badge = screen.getByRole("status", { name: /You save/ });
+  expect(badge).toHaveAccessibleName(`You save NPR ${money(s.interestSaved)} and finish ${s.monthsSaved} months early`);
+  await vi.waitFor(() => expect(badge).toHaveTextContent(`NPR ${money(s.interestSaved)}`), { timeout: 2000 });
+  vi.unstubAllGlobals();
 });

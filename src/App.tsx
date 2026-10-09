@@ -3,6 +3,32 @@ import { balanceChartData, breakdown, calculateEmi, compareLoans, extraSavings, 
 import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
+function useCountUp(target: number, ms = 800) {
+  const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const canAnimate = typeof window.matchMedia === "function" && !reduced;
+  const [value, setValue] = useState(canAnimate ? 0 : target);
+  useEffect(() => {
+    if (!canAnimate) { setValue(target); return; }
+    const start = performance.now();
+    let id = requestAnimationFrame(function tick(now) {
+      const t = Math.min(1, (now - start) / ms);
+      setValue(target * t);
+      if (t < 1) id = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(id);
+  }, [target, canAnimate, ms]);
+  return value;
+}
+
+function SavingsBadge({ interestSaved, monthsSaved }: { interestSaved: number; monthsSaved: number }) {
+  const shown = useCountUp(interestSaved);
+  return (
+    <p className="badge" role="status" aria-label={`You save NPR ${money(interestSaved)} and finish ${monthsSaved} months early`}>
+      You save NPR {money(shown)} and finish {monthsSaved} months early
+    </p>
+  );
+}
+
 const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1" };
 
 function BalanceChart({ points }: { points: ChartPoint[] }) {
@@ -163,8 +189,8 @@ export default function App() {
   return (
     <main>
       <h1>Loan Calculator</h1>
-      <div className="row" role="tablist">
-        <button type="button" role="tab" aria-selected={tab === "emi"} onClick={() => setTab("emi")}>EMI</button>
+      <div className="row segmented" role="tablist">
+        <button type="button" role="tab" aria-selected={tab === "emi"} onClick={() => setTab("emi")}>Calculator</button>
         <button type="button" role="tab" aria-selected={tab === "afford"} onClick={() => setTab("afford")}>Affordability</button>
         <button type="button" role="tab" aria-selected={tab === "compare"} onClick={() => setTab("compare")}>Compare</button>
       </div>
@@ -191,12 +217,15 @@ export default function App() {
         <SliderField label="Loan amount (NPR)" sliderLabel="Loan amount slider" inputMode="decimal" value={principal} onChange={setPrincipal} min={10000} max={10000000} step={10000} {...fieldProps("principal")} />
         <SliderField label="Interest rate (% per year)" sliderLabel="Interest rate slider" inputMode="decimal" value={rate} onChange={setRate} min={0} max={30} step={0.1} {...fieldProps("rate")} />
         <SliderField label="Tenure (months)" sliderLabel="Tenure slider" inputMode="numeric" value={months} onChange={setMonths} min={1} max={360} step={1} {...fieldProps("months")} />
-        <label>Monthly extra payment (NPR)<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
-        <label>One-time lump sum (NPR)<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>
-        <label>Lump sum month<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
-        <label>Yearly property tax (NPR)<input inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} /></label>
-        <label>Yearly insurance (NPR)<input inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} /></label>
-        <label>Monthly fees (NPR)<input inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></label>
+        <details className="advanced">
+          <summary>Advanced</summary>
+          <label>Monthly extra payment (NPR)<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
+          <label>One-time lump sum (NPR)<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>
+          <label>Lump sum month<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
+          <label>Yearly property tax (NPR)<input inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} /></label>
+          <label>Yearly insurance (NPR)<input inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} /></label>
+          <label>Monthly fees (NPR)<input inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></label>
+        </details>
       </div>
       {error && <p id="calc-error" className="error" role="alert">{error}</p>}
       </div>
@@ -209,7 +238,7 @@ export default function App() {
             <p>Total payment: NPR {money(result.totalPayment)}</p>
             <p>Payoff date: {payoffDate(new Date(), rows.length).toLocaleDateString("en-US", { month: "long", year: "numeric" })}</p>
             {savings && savings.monthsSaved > 0 && (
-              <p className="highlight"><strong>You save NPR {money(savings.interestSaved)} interest and finish {savings.monthsSaved} months early</strong></p>
+              <SavingsBadge interestSaved={savings.interestSaved} monthsSaved={savings.monthsSaved} />
             )}
           </section>
       )}
