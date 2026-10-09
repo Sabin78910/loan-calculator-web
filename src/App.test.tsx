@@ -33,3 +33,13 @@ test("shows principal vs interest breakdown with percentages", () => {
   expect(screen.getByText(`Principal ${principalPct.toFixed(1)}%`)).toBeInTheDocument();
   expect(screen.getByText(`Interest ${interestPct.toFixed(1)}%`)).toBeInTheDocument();
 });
+
+test("toggles between monthly and yearly schedule", async () => {
+  render(<App />);
+  expect(screen.getByRole("columnheader", { name: "Month" })).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Yearly" }));
+  expect(screen.getByRole("columnheader", { name: "Year" })).toBeInTheDocument();
+  expect(screen.getAllByRole("row")).toHaveLength(1 + 5);
+  await userEvent.click(screen.getByRole("button", { name: "Monthly" }));
+  expect(screen.getAllByRole("row")).toHaveLength(1 + 60);
+});

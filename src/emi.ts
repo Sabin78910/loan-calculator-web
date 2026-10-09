@@ -34,3 +34,18 @@ export function breakdown(result: EmiResult, principal: number): { principalPct:
   const principalPct = (principal / result.totalPayment) * 100;
   return { principalPct, interestPct: 100 - principalPct };
 }
+
+export interface YearRow { year: number; principal: number; interest: number; balance: number; }
+
+export function groupByYear(rows: Row[]): YearRow[] {
+  const years: YearRow[] = [];
+  for (const r of rows) {
+    const year = Math.ceil(r.month / 12);
+    let y = years[years.length - 1];
+    if (!y || y.year !== year) years.push((y = { year, principal: 0, interest: 0, balance: 0 }));
+    y.principal += r.principal;
+    y.interest += r.interest;
+    y.balance = r.balance;
+  }
+  return years;
+}

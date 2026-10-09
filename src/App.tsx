@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { breakdown, calculateEmi, money, schedule, toCsv } from "./emi";
+import { breakdown, calculateEmi, groupByYear, money, schedule, toCsv } from "./emi";
 
 export default function App() {
   const [principal, setPrincipal] = useState("500000");
   const [rate, setRate] = useState("12");
   const [months, setMonths] = useState("60");
+  const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   const { result, rows, error } = useMemo(() => {
     try {
@@ -57,13 +58,30 @@ export default function App() {
             </p>
           </section>
           <button type="button" onClick={downloadCsv}>Download CSV</button>
+          <div className="row" role="group" aria-label="Schedule view">
+            <button type="button" aria-pressed={view === "monthly"} onClick={() => setView("monthly")}>Monthly</button>
+            <button type="button" aria-pressed={view === "yearly"} onClick={() => setView("yearly")}>Yearly</button>
+          </div>
           <table className="card">
-            <thead><tr><th>Month</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.month}><td>{r.month}</td><td>{money(r.principal)}</td><td>{money(r.interest)}</td><td>{money(r.balance)}</td></tr>
-              ))}
-            </tbody>
+            {view === "monthly" ? (
+              <>
+                <thead><tr><th>Month</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+                <tbody>
+                  {rows.map((r) => (
+                    <tr key={r.month}><td>{r.month}</td><td>{money(r.principal)}</td><td>{money(r.interest)}</td><td>{money(r.balance)}</td></tr>
+                  ))}
+                </tbody>
+              </>
+            ) : (
+              <>
+                <thead><tr><th>Year</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+                <tbody>
+                  {groupByYear(rows).map((y) => (
+                    <tr key={y.year}><td>{y.year}</td><td>{money(y.principal)}</td><td>{money(y.interest)}</td><td>{money(y.balance)}</td></tr>
+                  ))}
+                </tbody>
+              </>
+            )}
           </table>
         </>
       )}
