@@ -1,8 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
-import { breakdown, calculateEmi, extraSavings, groupByYear, maxLoan, money, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, extraSavings, groupByYear, maxLoan, money, schedule, toCsv } from "./emi";
+import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
 const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1" };
+
+function BalanceChart({ points }: { points: ChartPoint[] }) {
+  const W = 400, H = 200, PAD = 24;
+  const maxY = Math.max(1, ...points.map((p) => Math.max(p.balance, p.interestPaid)));
+  const lastYear = Math.max(1, points[points.length - 1].year);
+  const x = (year: number) => PAD + (year / lastYear) * (W - 2 * PAD);
+  const y = (v: number) => H - PAD - (v / maxY) * (H - 2 * PAD);
+  const area = (f: (p: ChartPoint) => number) =>
+    `${points.map((p) => `${x(p.year)},${y(f(p))}`).join(" ")} ${x(lastYear)},${y(0)} ${x(0)},${y(0)}`;
+  const line = points.map((p) => `${x(p.year)},${y(p.balance)}`).join(" ");
+  const first = points[0], last = points[points.length - 1];
+  const summary = `Loan balance over time: falls from NPR ${money(first.balance)} to NPR ${money(last.balance)} over ${last.year} years, paying NPR ${money(last.principalPaid)} principal and NPR ${money(last.interestPaid)} interest.`;
+  return (
+    <section className="card" aria-label="Balance over time">
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" role="img" aria-label={summary}>
+        <polygon points={area((p) => p.balance)} fill="#2563eb" fillOpacity="0.25" />
+        <polygon points={area((p) => p.interestPaid)} fill="#dc2626" fillOpacity="0.25" />
+        <polyline points={line} fill="none" stroke="#2563eb" strokeWidth="2" />
+        <line x1={PAD} y1={y(0)} x2={W - PAD} y2={y(0)} stroke="currentColor" />
+        <text x={PAD} y={H - 6} fontSize="10" fill="currentColor">Year 0</text>
+        <text x={W - PAD} y={H - 6} fontSize="10" fill="currentColor" textAnchor="end">Year {last.year}</text>
+      </svg>
+      <p className="row" style={{ justifyContent: "space-between", marginBottom: 0 }}>
+        <span>Remaining principal (blue)</span>
+        <span>Cumulative interest (red)</span>
+      </p>
+    </section>
+  );
+}
 
 export default function App() {
   const [initial] = useState(() => parseInputs(window.location.search, DEFAULTS));
@@ -110,6 +140,7 @@ export default function App() {
               <span>Interest {split.interestPct.toFixed(1)}%</span>
             </p>
           </section>
+          <BalanceChart points={balanceChartData(rows, Number(principal))} />
           <button type="button" onClick={downloadCsv}>Download CSV</button>
           <div className="row">
             <button type="button" aria-pressed={view === "monthly"} onClick={() => setView("monthly")}>Monthly</button>

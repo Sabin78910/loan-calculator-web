@@ -1,4 +1,4 @@
-import { breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -94,4 +94,23 @@ test("maxLoan validates input", () => {
   expect(() => maxLoan(0, 10, 12)).toThrow("Payment must be positive");
   expect(() => maxLoan(1000, -1, 12)).toThrow("Rate cannot be negative");
   expect(() => maxLoan(1000, 10, 0)).toThrow("Tenure must be at least 1 month");
+});
+
+describe("balanceChartData", () => {
+  it("starts at the full principal in year 0 and ends at zero balance", () => {
+    const pts = balanceChartData(schedule(500000, 12, 60), 500000);
+    expect(pts).toHaveLength(6);
+    expect(pts[0]).toEqual({ year: 0, balance: 500000, principalPaid: 0, interestPaid: 0 });
+    expect(pts[5].year).toBe(5);
+    expect(pts[5].balance).toBeCloseTo(0, 2);
+  });
+  it("accumulates principal and interest paid", () => {
+    const rows = schedule(500000, 12, 60);
+    const last = balanceChartData(rows, 500000).at(-1)!;
+    expect(last.principalPaid).toBeCloseTo(500000, 2);
+    expect(last.interestPaid).toBeCloseTo(rows.reduce((s, r) => s + r.interest, 0), 2);
+  });
+  it("returns only the origin for no rows", () => {
+    expect(balanceChartData([], 1000)).toHaveLength(1);
+  });
 });

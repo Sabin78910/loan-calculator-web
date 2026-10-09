@@ -118,3 +118,10 @@ test("affordability tab computes maximum loan", async () => {
   await userEvent.type(screen.getByLabelText("Tenure (months)"), "120");
   expect(screen.getByLabelText("Affordability result")).toHaveTextContent(`Maximum loan: NPR ${money(maxLoan(25000, 10, 120))}`);
 });
+
+test("renders balance chart as accessible img with text summary", () => {
+  render(<App />);
+  const chart = screen.getByRole("img", { name: /Loan balance over time/ });
+  expect(chart).toHaveAccessibleName(/5 years/);
+  expect(chart.querySelector("polyline")).not.toBeNull();
+});
