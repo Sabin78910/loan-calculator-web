@@ -95,3 +95,13 @@ export function compareLoans(a: LoanTerms, b: LoanTerms): { a: EmiResult; b: Emi
   const diff = Math.round((ra.totalPayment - rb.totalPayment) * 100);
   return { a: ra, b: rb, cheaper: diff < 0 ? "A" : diff > 0 ? "B" : "tie" };
 }
+
+export interface MonthlyCostExtras { yearlyTax?: number; yearlyInsurance?: number; monthlyFee?: number; }
+export interface MonthlyCost { emi: number; tax: number; insurance: number; fee: number; total: number; }
+
+export function monthlyCost(emi: number, extras: MonthlyCostExtras = {}): MonthlyCost {
+  const { yearlyTax = 0, yearlyInsurance = 0, monthlyFee = 0 } = extras;
+  if (![yearlyTax, yearlyInsurance, monthlyFee].every((v) => v >= 0)) throw new Error("Extra costs cannot be negative");
+  const tax = yearlyTax / 12, insurance = yearlyInsurance / 12;
+  return { emi, tax, insurance, fee: monthlyFee, total: emi + tax + insurance + monthlyFee };
+}

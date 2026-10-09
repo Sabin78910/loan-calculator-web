@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { balanceChartData, breakdown, calculateEmi, compareLoans, extraSavings, groupByYear, maxLoan, money, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, compareLoans, extraSavings, groupByYear, maxLoan, money, monthlyCost, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
@@ -90,6 +90,9 @@ export default function App() {
   const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
   const [tab, setTab] = useState<"emi" | "afford" | "compare">("emi");
   const [payment, setPayment] = useState("");
+  const [tax, setTax] = useState("");
+  const [insurance, setInsurance] = useState("");
+  const [fee, setFee] = useState("");
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
@@ -105,6 +108,15 @@ export default function App() {
       return { result: null, rows: [], savings: null, error: (e as Error).message };
     }
   }, [principal, rate, months, extra, lump, lumpMonth]);
+
+  const cost = useMemo(() => {
+    if (!result) return null;
+    try {
+      return { value: monthlyCost(result.emi, { yearlyTax: Number(tax || 0), yearlyInsurance: Number(insurance || 0), monthlyFee: Number(fee || 0) }), error: null };
+    } catch (e) {
+      return { value: null, error: (e as Error).message };
+    }
+  }, [result, tax, insurance, fee]);
 
   const afford = useMemo(() => {
     if (payment === "") return { loan: null, error: null };
@@ -162,6 +174,9 @@ export default function App() {
         <label>Monthly extra payment (NPR)<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
         <label>One-time lump sum (NPR)<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>
         <label>Lump sum month<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
+        <label>Yearly property tax (NPR)<input inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} /></label>
+        <label>Yearly insurance (NPR)<input inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} /></label>
+        <label>Monthly fees (NPR)<input inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></label>
       </div>
       {error && <p id="calc-error" className="error" role="alert">{error}</p>}
       {result && split && (
@@ -174,6 +189,16 @@ export default function App() {
               <p className="highlight"><strong>You save NPR {money(savings.interestSaved)} interest and finish {savings.monthsSaved} months early</strong></p>
             )}
           </section>
+          {cost?.error && <p className="error" role="alert">{cost.error}</p>}
+          {cost?.value && (tax || insurance || fee) && (
+            <section className="card" aria-label="Full monthly cost" aria-live="polite">
+              <h2 style={{ marginTop: 0 }}>Total monthly cost: NPR {money(cost.value.total)}</h2>
+              <p>Loan EMI: NPR {money(cost.value.emi)}</p>
+              <p>Property tax: NPR {money(cost.value.tax)}</p>
+              <p>Insurance: NPR {money(cost.value.insurance)}</p>
+              <p>Fees: NPR {money(cost.value.fee)}</p>
+            </section>
+          )}
           <section className="card" aria-label="Payment breakdown">
             <div
               className="breakdown"
