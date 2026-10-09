@@ -56,3 +56,19 @@ table { display: block; overflow-x: auto; }
   .badge { background: #064e3b; color: #d1fae5; }
   .segmented button[aria-selected="true"] { color: var(--navy); }
 }
+.donut { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+.donut-principal { stroke: var(--accent); }
+.donut-interest { stroke: var(--muted); }
+.donut-principal-bg { background: var(--accent); }
+.donut-interest-bg { background: var(--muted); }
+.legend { list-style: none; padding: 0; margin: 0; }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.tooltip-slot { min-height: 2.4em; }
+.tooltip { font-size: 13px; padding: 6px 10px; border-radius: 8px; background: var(--navy); color: #fff; display: inline-block; }
+circle[data-testid="chart-point"] { cursor: pointer; }
+circle[data-testid="chart-point"]:focus-visible { outline: 3px solid var(--mint); }
+.schedule { max-height: 420px; overflow: auto; padding: 0; }
+.schedule table { display: table; }
+.schedule thead th { position: sticky; top: 0; background: var(--card); box-shadow: 0 1px 0 var(--border); z-index: 1; }
+.schedule tbody tr:nth-child(even) { background: color-mix(in srgb, var(--muted) 10%, transparent); }
