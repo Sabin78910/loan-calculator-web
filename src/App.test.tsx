@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { breakdown, calculateEmi, maxLoan, extraSavings, money, schedule } from "./emi";
@@ -158,4 +158,34 @@ test("shows full monthly cost breakdown with tax, insurance and fees", async () 
   expect(cost).toHaveTextContent("Property tax: NPR 100.00");
   expect(cost).toHaveTextContent("Insurance: NPR 50.00");
   expect(cost).toHaveTextContent("Fees: NPR 25.00");
+});
+
+test.each([
+  ["Loan amount (NPR)", "Loan amount slider", "250000", "750000"],
+  ["Interest rate (% per year)", "Interest rate slider", "8.5", "15.5"],
+  ["Tenure (months)", "Tenure slider", "120", "36"],
+])("%s number field and slider stay in sync", async (label, sliderName, value, dragged) => {
+  render(<App />);
+  const field = screen.getByLabelText(label);
+  const slider = screen.getByRole("slider", { name: sliderName });
+  await userEvent.clear(field);
+  await userEvent.type(field, value);
+  expect(slider).toHaveValue(value);
+  fireEvent.change(slider, { target: { value: dragged } });
+  expect(field).toHaveValue(dragged);
+});
+
+test("slider drag updates the results card live", () => {
+  render(<App />);
+  fireEvent.change(screen.getByRole("slider", { name: "Tenure slider" }), { target: { value: "120" } });
+  expect(screen.getByLabelText("Summary")).toHaveTextContent(`NPR ${money(calculateEmi(500000, 12, 120).emi)}`);
+});
+
+test("results card shows interest, total cost and payoff date", () => {
+  render(<App />);
+  const card = screen.getByLabelText("Summary");
+  const r = calculateEmi(500000, 12, 60);
+  expect(card).toHaveTextContent(`Total interest: NPR ${money(r.totalInterest)}`);
+  expect(card).toHaveTextContent(`Total payment: NPR ${money(r.totalPayment)}`);
+  expect(card).toHaveTextContent(/Payoff date: \w+ \d{4}/);
 });
