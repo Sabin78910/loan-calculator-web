@@ -253,3 +253,14 @@ test("schedule table is sticky and zebra striped", () => {
   render(<App />);
   expect(screen.getByRole("table", { name: "Monthly payment schedule" }).closest(".schedule")).not.toBeNull();
 });
+
+test("shows milestones timeline and highlights extra-payment gains", async () => {
+  render(<App />);
+  const section = screen.getByLabelText("Debt-free milestones");
+  expect(within(section).getAllByRole("listitem")).toHaveLength(4);
+  expect(section).toHaveTextContent("Debt-free");
+  expect(section).not.toHaveTextContent("months earlier");
+  await userEvent.click(screen.getByText("Advanced"));
+  await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "10000");
+  expect(screen.getByLabelText("Debt-free milestones")).toHaveTextContent("months earlier");
+});

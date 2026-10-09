@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { balanceChartData, breakdown, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, money, monthlyCost, payoffDate, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, money, milestones, monthlyCost, payoffDate, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
 
@@ -187,13 +187,13 @@ export default function App() {
     window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth }));
   }, [principal, rate, months, extra, lump, lumpMonth]);
 
-  const { result, rows, savings, error } = useMemo(() => {
+  const { result, rows, baseRows, savings, error } = useMemo(() => {
     try {
       const p = Number(principal), r = Number(rate), n = Number(months);
       const x = { monthly: Number(extra || 0), lumpSum: Number(lump || 0), lumpMonth: Number(lumpMonth || 1) };
-      return { result: calculateEmi(p, r, n), rows: schedule(p, r, n, x), savings: extraSavings(p, r, n, x), error: null };
+      return { result: calculateEmi(p, r, n), rows: schedule(p, r, n, x), baseRows: schedule(p, r, n), savings: extraSavings(p, r, n, x), error: null };
     } catch (e) {
-      return { result: null, rows: [], savings: null, error: (e as Error).message };
+      return { result: null, rows: [], baseRows: [], savings: null, error: (e as Error).message };
     }
   }, [principal, rate, months, extra, lump, lumpMonth]);
 
@@ -301,6 +301,17 @@ export default function App() {
               <p>Fees: NPR {money(cost.value.fee)}</p>
             </section>
           )}
+          <section className="card" aria-label="Debt-free milestones">
+            <h2 style={{ marginTop: 0 }}>Milestones</h2>
+            <ol>
+              {milestones(rows, Number(principal), new Date(), baseRows).map((m) => (
+                <li key={m.label} className={m.monthsEarlier > 0 ? "highlight" : undefined}>
+                  {m.label}: {m.date.toLocaleDateString("en-US", { month: "long", year: "numeric" })} (month {m.month})
+                  {m.monthsEarlier > 0 && ` — ${m.monthsEarlier} months earlier`}
+                </li>
+              ))}
+            </ol>
+          </section>
           <BalanceChart points={balanceChartData(rows, Number(principal))} />
           <button type="button" onClick={downloadCsv}>Download CSV</button>
           <div className="row">
