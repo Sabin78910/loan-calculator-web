@@ -1,4 +1,4 @@
-import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate } from "./emi";
+import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -164,5 +164,28 @@ describe("donutArcs", () => {
     const a = donutArcs(100, 0, 40);
     expect(a.interest.length).toBe(0);
     expect(a.principal.length).toBeCloseTo(a.circumference);
+  });
+});
+
+describe("milestones", () => {
+  const start = new Date(2026, 0, 15);
+  it("returns 25/50/75% and debt-free with months and dates", () => {
+    const rows = schedule(120000, 0, 12);
+    const m = milestones(rows, 120000, start);
+    expect(m.map((x) => x.label)).toEqual(["25% paid", "50% paid", "75% paid", "Debt-free"]);
+    expect(m.map((x) => x.month)).toEqual([3, 6, 9, 12]);
+    expect(m[3].date).toEqual(payoffDate(start, 12));
+    expect(m.every((x) => x.monthsEarlier === 0)).toBe(true);
+  });
+  it("moves milestones earlier with extra payments", () => {
+    const base = schedule(500000, 12, 60);
+    const rows = schedule(500000, 12, 60, { monthly: 10000 });
+    const m = milestones(rows, 500000, start, base);
+    expect(m[3].month).toBe(rows.length);
+    expect(m[3].monthsEarlier).toBe(base.length - rows.length);
+    expect(m.every((x) => x.monthsEarlier > 0)).toBe(true);
+  });
+  it("is empty for no rows", () => {
+    expect(milestones([], 1000, start)).toEqual([]);
   });
 });

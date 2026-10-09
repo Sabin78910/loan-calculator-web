@@ -123,3 +123,22 @@ export function donutArcs(principalPct: number, interestPct: number, r: number):
   const interest = (circumference * interestPct) / 100;
   return { circumference, principal: { length: principal, offset: 0 }, interest: { length: interest, offset: -principal } };
 }
+
+export interface Milestone { label: string; month: number; date: Date; monthsEarlier: number; }
+
+/** Months at which 25/50/75% of principal is repaid, plus debt-free; `base` (no extras) gives monthsEarlier. */
+export function milestones(rows: Row[], principal: number, start: Date, base: Row[] = rows): Milestone[] {
+  if (rows.length === 0) return [];
+  const monthAt = (rs: Row[], pct: number) => {
+    let paid = 0;
+    for (const r of rs) {
+      paid += r.principal;
+      if (paid >= (principal * pct) / 100 - 0.005) return r.month;
+    }
+    return rs[rs.length - 1].month;
+  };
+  return [25, 50, 75, 100].map((pct) => {
+    const month = monthAt(rows, pct);
+    return { label: pct === 100 ? "Debt-free" : `${pct}% paid`, month, date: payoffDate(start, month), monthsEarlier: Math.max(0, monthAt(base, pct) - month) };
+  });
+}
