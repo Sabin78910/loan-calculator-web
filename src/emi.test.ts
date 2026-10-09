@@ -1,4 +1,4 @@
-import { balanceChartData, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv } from "./emi";
+import { balanceChartData, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -127,5 +127,19 @@ describe("compareLoans", () => {
   });
   it("throws on invalid input", () => {
     expect(() => compareLoans({ principal: 0, rate: 10, months: 12 }, { principal: 1, rate: 10, months: 12 })).toThrow();
+  });
+});
+
+describe("monthlyCost", () => {
+  it("adds yearly tax and insurance (per month) and monthly fees to the EMI", () => {
+    const c = monthlyCost(1000, { yearlyTax: 1200, yearlyInsurance: 600, monthlyFee: 25 });
+    expect(c).toEqual({ emi: 1000, tax: 100, insurance: 50, fee: 25, total: 1175 });
+  });
+  it("defaults extras to zero", () => {
+    expect(monthlyCost(1000).total).toBe(1000);
+  });
+  it("throws on negative amounts", () => {
+    expect(() => monthlyCost(1000, { yearlyTax: -1 })).toThrow("Extra costs cannot be negative");
+    expect(() => monthlyCost(1000, { monthlyFee: NaN })).toThrow("Extra costs cannot be negative");
   });
 });

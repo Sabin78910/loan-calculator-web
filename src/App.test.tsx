@@ -145,3 +145,17 @@ test("compare tab shows an error for invalid input", async () => {
   await userEvent.type(months, "0");
   expect(screen.getByRole("alert")).toHaveTextContent("Tenure");
 });
+
+test("shows full monthly cost breakdown with tax, insurance and fees", async () => {
+  render(<App />);
+  expect(screen.queryByLabelText("Full monthly cost")).toBeNull();
+  await userEvent.type(screen.getByLabelText("Yearly property tax (NPR)"), "1200");
+  await userEvent.type(screen.getByLabelText("Yearly insurance (NPR)"), "600");
+  await userEvent.type(screen.getByLabelText("Monthly fees (NPR)"), "25");
+  const cost = screen.getByLabelText("Full monthly cost");
+  const emi = calculateEmi(500000, 12, 60).emi;
+  expect(cost).toHaveTextContent(`Total monthly cost: NPR ${money(emi + 175)}`);
+  expect(cost).toHaveTextContent("Property tax: NPR 100.00");
+  expect(cost).toHaveTextContent("Insurance: NPR 50.00");
+  expect(cost).toHaveTextContent("Fees: NPR 25.00");
+});
