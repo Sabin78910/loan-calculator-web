@@ -219,12 +219,15 @@ test("savings badge shows the final value without animation when reduced motion 
 
 test("savings badge counts up to the final value when motion is allowed", async () => {
   vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} }));
+  // Deterministic frames: each frame jumps past the 800 ms animation, so slow CI machines can't time out.
+  vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => setTimeout(() => cb(performance.now() + 1000), 0) as unknown as number);
+  vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
   render(<App />);
   await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "5000");
   const s = extraSavings(500000, 12, 60, { monthly: 5000 });
   const badge = screen.getByRole("status", { name: /You save/ });
   expect(badge).toHaveAccessibleName(`You save NPR ${money(s.interestSaved)} and finish ${s.monthsSaved} months early`);
-  await vi.waitFor(() => expect(badge).toHaveTextContent(`NPR ${money(s.interestSaved)}`), { timeout: 2000 });
+  await vi.waitFor(() => expect(badge).toHaveTextContent(`NPR ${money(s.interestSaved)}`));
   vi.unstubAllGlobals();
 });
 
