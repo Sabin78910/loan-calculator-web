@@ -24,6 +24,10 @@ export default function App() {
     }
   }, [principal, rate, months]);
 
+  const errorField = error?.startsWith("Principal") ? "principal" : error?.startsWith("Rate") ? "rate" : error ? "months" : null;
+  const fieldProps = (name: string) =>
+    errorField === name ? { "aria-invalid": true, "aria-describedby": "calc-error" } : {};
+
   const split = result ? breakdown(result, Number(principal)) : null;
 
   const downloadCsv = () => {
@@ -39,14 +43,14 @@ export default function App() {
     <main>
       <h1>Loan Calculator</h1>
       <div className="card">
-        <label>Loan amount (NPR)<input inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} /></label>
-        <label>Interest rate (% per year)<input inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></label>
-        <label>Tenure (months)<input inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} /></label>
+        <label>Loan amount (NPR)<input inputMode="decimal" value={principal} {...fieldProps("principal")} onChange={(e) => setPrincipal(e.target.value)} /></label>
+        <label>Interest rate (% per year)<input inputMode="decimal" value={rate} {...fieldProps("rate")} onChange={(e) => setRate(e.target.value)} /></label>
+        <label>Tenure (months)<input inputMode="numeric" value={months} {...fieldProps("months")} onChange={(e) => setMonths(e.target.value)} /></label>
       </div>
-      {error && <p className="error" role="alert">{error}</p>}
+      {error && <p id="calc-error" className="error" role="alert">{error}</p>}
       {result && split && (
         <>
-          <section className="card" aria-label="Summary">
+          <section className="card" aria-label="Summary" aria-live="polite">
             <h2 style={{ marginTop: 0 }}>Monthly EMI: NPR {money(result.emi)}</h2>
             <p>Total interest: NPR {money(result.totalInterest)}</p>
             <p>Total payment: NPR {money(result.totalPayment)}</p>
@@ -72,7 +76,8 @@ export default function App() {
           </div>
           {view === "monthly" ? (
             <table className="card">
-              <thead><tr><th>Month</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+              <caption>Monthly payment schedule</caption>
+              <thead><tr><th scope="col">Month</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Balance</th></tr></thead>
               <tbody>
                 {rows.map((r) => (
                   <tr key={r.month}><td>{r.month}</td><td>{money(r.principal)}</td><td>{money(r.interest)}</td><td>{money(r.balance)}</td></tr>
@@ -81,7 +86,8 @@ export default function App() {
             </table>
           ) : (
             <table className="card">
-              <thead><tr><th>Year</th><th>Principal</th><th>Interest</th><th>Balance</th></tr></thead>
+              <caption>Yearly payment schedule</caption>
+              <thead><tr><th scope="col">Year</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Balance</th></tr></thead>
               <tbody>
                 {groupByYear(rows).map((y) => (
                   <tr key={y.year}><td>{y.year}</td><td>{money(y.principal)}</td><td>{money(y.interest)}</td><td>{money(y.balance)}</td></tr>

@@ -55,3 +55,35 @@ test("toggles between monthly and yearly schedule", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Monthly" }));
   expect(screen.getAllByRole("row")).toHaveLength(61);
 });
+
+test("summary is a polite live region", () => {
+  render(<App />);
+  expect(screen.getByLabelText("Summary")).toHaveAttribute("aria-live", "polite");
+});
+
+test("tables have caption and column-scoped headers", async () => {
+  render(<App />);
+  expect(screen.getByRole("table", { name: "Monthly payment schedule" })).toBeInTheDocument();
+  screen.getAllByRole("columnheader").forEach((h) => expect(h).toHaveAttribute("scope", "col"));
+  await userEvent.click(screen.getByRole("button", { name: "Yearly" }));
+  expect(screen.getByRole("table", { name: "Yearly payment schedule" })).toBeInTheDocument();
+  screen.getAllByRole("columnheader").forEach((h) => expect(h).toHaveAttribute("scope", "col"));
+});
+
+test("invalid input is marked aria-invalid and linked to its error", async () => {
+  render(<App />);
+  const months = screen.getByLabelText("Tenure (months)");
+  expect(months).not.toHaveAttribute("aria-invalid", "true");
+  await userEvent.clear(months);
+  await userEvent.type(months, "0");
+  expect(months).toHaveAttribute("aria-invalid", "true");
+  expect(months).toHaveAccessibleDescription("Tenure must be at least 1 month");
+  expect(screen.getByLabelText("Loan amount (NPR)")).not.toHaveAttribute("aria-invalid", "true");
+  const rate = screen.getByLabelText("Interest rate (% per year)");
+  await userEvent.clear(rate);
+  await userEvent.type(rate, "-1");
+  await userEvent.clear(months);
+  await userEvent.type(months, "12");
+  expect(rate).toHaveAttribute("aria-invalid", "true");
+  expect(rate).toHaveAccessibleDescription("Rate cannot be negative");
+});
