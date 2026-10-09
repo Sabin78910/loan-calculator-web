@@ -267,3 +267,18 @@ test("shows milestones timeline and highlights extra-payment gains", async () =>
   await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "10000");
   expect(screen.getByLabelText("Debt-free milestones")).toHaveTextContent("months earlier");
 });
+
+test.each(["EMI", "interest rate", "tenure", "amortization", "prepayment"])("info button explains %s in an accessible popover", async (term) => {
+  render(<App />);
+  if (term === "prepayment") await userEvent.click(screen.getByText("Advanced"));
+  const btn = screen.getByRole("button", { name: `What is ${term}?` });
+  expect(btn).toHaveAttribute("aria-expanded", "false");
+  await userEvent.click(btn);
+  expect(btn).toHaveAttribute("aria-expanded", "true");
+  const pop = screen.getByRole("note");
+  expect(btn).toHaveAttribute("aria-controls", pop.id);
+  expect(pop.textContent!.length).toBeGreaterThan(20);
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("note")).not.toBeInTheDocument();
+  expect(btn).toHaveFocus();
+});
