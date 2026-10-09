@@ -76,3 +76,18 @@ circle[data-testid="chart-point"]:focus-visible { outline: 3px solid var(--mint)
 .info { position: relative; display: inline-block; }
 .info-btn { min-width: 24px; min-height: 24px; padding: 0 6px; border-radius: 50%; font-size: 0.8rem; font-style: italic; }
 .info .tooltip { position: absolute; left: 0; top: 100%; z-index: 10; width: 16rem; }
+
+.print-only { display: none; }
+@media print {
+  .no-print, .info, .badge { display: none !important; }
+  .print-only { display: block; break-inside: avoid; }
+  body { background: #fff; color: #000; }
+  .card { border: none; box-shadow: none; padding: 0; margin-bottom: 8px; }
+  .layout { display: block; }
+  .results { order: 0; }
+  .big { font-size: 1.4rem; }
+  .print-only table { font-size: 11px; width: 100%; }
+  .donut svg { width: 90px; height: 90px; }
+  svg, .donut { break-inside: avoid; }
+  circle { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

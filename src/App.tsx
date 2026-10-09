@@ -253,7 +253,7 @@ export default function App() {
   return (
     <main>
       <h1>Loan Calculator</h1>
-      <div className="row segmented" role="tablist">
+      <div className="row segmented no-print" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "emi"} onClick={() => setTab("emi")}>Calculator</button>
         <button type="button" role="tab" aria-selected={tab === "afford"} onClick={() => setTab("afford")}>Affordability</button>
         <button type="button" role="tab" aria-selected={tab === "compare"} onClick={() => setTab("compare")}>Compare</button>
@@ -276,7 +276,7 @@ export default function App() {
       )}
       {tab === "emi" && <>
       <div className="layout">
-      <div className="inputs">
+      <div className="inputs no-print">
       <div className="card">
         <SliderField label="Loan amount (NPR)" sliderLabel="Loan amount slider" inputMode="decimal" value={principal} onChange={setPrincipal} min={10000} max={10000000} step={10000} {...fieldProps("principal")} />
         <SliderField label="Interest rate (% per year)" info="interest rate" sliderLabel="Interest rate slider" inputMode="decimal" value={rate} onChange={setRate} min={0} max={30} step={0.1} {...fieldProps("rate")} />
@@ -322,7 +322,7 @@ export default function App() {
               <p>Fees: NPR {money(cost.value.fee)}</p>
             </section>
           )}
-          <section className="card" aria-label="Debt-free milestones">
+          <section className="card no-print" aria-label="Debt-free milestones">
             <h2 style={{ marginTop: 0 }}>Milestones</h2>
             <p className="muted">How your payments shift over time (amortization) <InfoButton term="amortization" /></p>
             <ol>
@@ -335,13 +335,33 @@ export default function App() {
             </ol>
           </section>
           <BalanceChart points={balanceChartData(rows, Number(principal))} />
-          <button type="button" onClick={downloadCsv}>Download CSV</button>
-          <div className="row">
+          <div className="row no-print">
+            <button type="button" onClick={downloadCsv}>Download CSV</button>
+            <button type="button" onClick={() => window.print()}>Print / Save as PDF</button>
+          </div>
+          <section className="print-only" aria-label="Printable summary" aria-hidden="true">
+            <h2>Loan summary</h2>
+            <ul>
+              <li>Loan amount: NPR {money(Number(principal))}</li>
+              <li>Interest rate: {Number(rate)}% per year</li>
+              <li>Tenure: {Number(months)} months</li>
+            </ul>
+            <table>
+              <caption>Yearly summary schedule</caption>
+              <thead><tr><th scope="col">Year</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Balance</th></tr></thead>
+              <tbody>
+                {groupByYear(rows).map((y) => (
+                  <tr key={y.year}><td>{y.year}</td><td>{money(y.principal)}</td><td>{money(y.interest)}</td><td>{money(y.balance)}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </section>
+          <div className="row no-print">
             <button type="button" aria-pressed={view === "monthly"} onClick={() => setView("monthly")}>Monthly</button>
             <button type="button" aria-pressed={view === "yearly"} onClick={() => setView("yearly")}>Yearly</button>
           </div>
           {view === "monthly" ? (
-            <div className="schedule card">
+            <div className="schedule card no-print">
             <table>
               <caption>Monthly payment schedule</caption>
               <thead><tr><th scope="col">Month</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Extra</th><th scope="col">Balance</th></tr></thead>
@@ -353,7 +373,7 @@ export default function App() {
             </table>
             </div>
           ) : (
-            <div className="schedule card">
+            <div className="schedule card no-print">
             <table>
               <caption>Yearly payment schedule</caption>
               <thead><tr><th scope="col">Year</th><th scope="col">Principal</th><th scope="col">Interest</th><th scope="col">Balance</th></tr></thead>
