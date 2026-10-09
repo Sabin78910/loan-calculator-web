@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { balanceChartData, breakdown, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, money, milestones, monthlyCost, payoffDate, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { parseInputs, serializeInputs } from "./shareUrl";
@@ -18,6 +18,25 @@ function useCountUp(target: number, ms = 800) {
     return () => cancelAnimationFrame(id);
   }, [target, canAnimate, ms]);
   return value;
+}
+
+const EXPLAINERS: Record<string, string> = {
+  EMI: "EMI (equated monthly instalment) is the fixed amount you pay the lender every month. It covers part of the interest and part of the loan itself.",
+  "interest rate": "The interest rate is the yearly cost of borrowing, as a percentage of the balance you still owe. A lower rate means less total interest.",
+  tenure: "Tenure is how long you have to repay the loan, in months. A longer tenure lowers the EMI but increases the total interest you pay.",
+  amortization: "Amortization is how each payment is split between interest and principal over time. Early payments are mostly interest; later ones mostly reduce the loan.",
+  prepayment: "A prepayment is any extra money paid beyond your EMI, monthly or as a lump sum. It cuts the balance sooner, so you pay less interest and finish earlier.",
+};
+
+function InfoButton({ term }: { term: keyof typeof EXPLAINERS }) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  return (
+    <span className="info" onKeyDown={(e) => { if (e.key === "Escape" && open) { setOpen(false); e.stopPropagation(); } }}>
+      <button type="button" className="info-btn" aria-label={`What is ${term}?`} aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>i</button>
+      {open && <span id={id} role="note" className="tooltip">{EXPLAINERS[term]}</span>}
+    </span>
+  );
 }
 
 function SavingsBadge({ interestSaved, monthsSaved }: { interestSaved: number; monthsSaved: number }) {
@@ -150,8 +169,8 @@ function Compare() {
   );
 }
 
-function SliderField({ label, sliderLabel, value, onChange, min, max, step, inputMode, ...aria }: {
-  label: string; sliderLabel: string; value: string; onChange: (v: string) => void;
+function SliderField({ label, sliderLabel, value, onChange, min, max, step, inputMode, info, ...aria }: {
+  info?: string; label: string; sliderLabel: string; value: string; onChange: (v: string) => void;
   min: number; max: number; step: number; inputMode: "decimal" | "numeric";
   "aria-invalid"?: boolean; "aria-describedby"?: string;
 }) {
@@ -159,6 +178,7 @@ function SliderField({ label, sliderLabel, value, onChange, min, max, step, inpu
   return (
     <div className="field">
       <label>{label}<input inputMode={inputMode} value={value} {...aria} onChange={(e) => onChange(e.target.value)} /></label>
+      {info && <InfoButton term={info} />}
       <input
         type="range" className="slider" aria-label={sliderLabel} min={min} max={max} step={step}
         value={Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min}
@@ -259,10 +279,11 @@ export default function App() {
       <div className="inputs">
       <div className="card">
         <SliderField label="Loan amount (NPR)" sliderLabel="Loan amount slider" inputMode="decimal" value={principal} onChange={setPrincipal} min={10000} max={10000000} step={10000} {...fieldProps("principal")} />
-        <SliderField label="Interest rate (% per year)" sliderLabel="Interest rate slider" inputMode="decimal" value={rate} onChange={setRate} min={0} max={30} step={0.1} {...fieldProps("rate")} />
-        <SliderField label="Tenure (months)" sliderLabel="Tenure slider" inputMode="numeric" value={months} onChange={setMonths} min={1} max={360} step={1} {...fieldProps("months")} />
+        <SliderField label="Interest rate (% per year)" info="interest rate" sliderLabel="Interest rate slider" inputMode="decimal" value={rate} onChange={setRate} min={0} max={30} step={0.1} {...fieldProps("rate")} />
+        <SliderField label="Tenure (months)" info="tenure" sliderLabel="Tenure slider" inputMode="numeric" value={months} onChange={setMonths} min={1} max={360} step={1} {...fieldProps("months")} />
         <details className="advanced">
           <summary>Advanced</summary>
+          <p className="muted">Extra payments <InfoButton term="prepayment" /></p>
           <label>Monthly extra payment (NPR)<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
           <label>One-time lump sum (NPR)<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>
           <label>Lump sum month<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
@@ -276,7 +297,7 @@ export default function App() {
       <aside className="results">
       {result && (
           <section className="card results-card" aria-label="Summary" aria-live="polite">
-            <p className="muted" style={{ margin: 0 }}>Monthly payment</p>
+            <p className="muted" style={{ margin: 0 }}>Monthly payment <InfoButton term="EMI" /></p>
             <h2 className="big">Monthly EMI: NPR {money(result.emi)}</h2>
             <p>Total interest: NPR {money(result.totalInterest)}</p>
             <p>Total payment: NPR {money(result.totalPayment)}</p>
@@ -303,6 +324,7 @@ export default function App() {
           )}
           <section className="card" aria-label="Debt-free milestones">
             <h2 style={{ marginTop: 0 }}>Milestones</h2>
+            <p className="muted">How your payments shift over time (amortization) <InfoButton term="amortization" /></p>
             <ol>
               {milestones(rows, Number(principal), new Date(), baseRows).map((m) => (
                 <li key={m.label} className={m.monthsEarlier > 0 ? "highlight" : undefined}>
