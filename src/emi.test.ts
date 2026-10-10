@@ -1,4 +1,4 @@
-import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones } from "./emi";
+import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -188,4 +188,32 @@ describe("milestones", () => {
   it("is empty for no rows", () => {
     expect(milestones([], 1000, start)).toEqual([]);
   });
+});
+
+test("rateSensitivity: delta 0 equals base and diffs are zero", () => {
+  const base = calculateEmi(500000, 10, 60);
+  const row = rateSensitivity(500000, 10, 60, [-1, 0, 1]).find((r) => r.delta === 0)!;
+  expect(row.rate).toBe(10);
+  expect(row.emi).toBeCloseTo(base.emi, 6);
+  expect(row.totalInterest).toBeCloseTo(base.totalInterest, 6);
+  expect(row.emiDiff).toBeCloseTo(0, 6);
+  expect(row.interestDiff).toBeCloseTo(0, 6);
+});
+test("rateSensitivity: higher rate gives higher EMI and interest", () => {
+  const [lo, mid, hi] = rateSensitivity(500000, 10, 60, [-0.5, 0, 0.5]);
+  expect(lo.emi).toBeLessThan(mid.emi);
+  expect(hi.emi).toBeGreaterThan(mid.emi);
+  expect(hi.emiDiff).toBeGreaterThan(0);
+  expect(lo.interestDiff).toBeLessThan(0);
+  expect(hi.emiDiff).toBeCloseTo(calculateEmi(500000, 10.5, 60).emi - mid.emi, 6);
+});
+test("rateSensitivity: rate never goes below 0", () => {
+  const rows = rateSensitivity(12000, 0.3, 12, [-1, -0.5, 0]);
+  expect(rows[0].rate).toBe(0);
+  expect(rows[0].emi).toBe(1000);
+  expect(rows[0].totalInterest).toBeCloseTo(0, 6);
+  expect(rows[1].rate).toBe(0);
+});
+test("rateSensitivity: validates inputs like calculateEmi", () => {
+  expect(() => rateSensitivity(0, 10, 12, [0])).toThrow("Principal must be positive");
 });

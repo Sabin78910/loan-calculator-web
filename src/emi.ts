@@ -142,3 +142,14 @@ export function milestones(rows: Row[], principal: number, start: Date, base: Ro
     return { label: pct === 100 ? "Debt-free" : `${pct}% paid`, month, date: payoffDate(start, month), monthsEarlier: Math.max(0, monthAt(base, pct) - month) };
   });
 }
+
+export interface SensitivityRow { delta: number; rate: number; emi: number; totalInterest: number; emiDiff: number; interestDiff: number; }
+
+export function rateSensitivity(principal: number, annualRate: number, months: number, deltas: number[]): SensitivityRow[] {
+  const base = calculateEmi(principal, annualRate, months);
+  return deltas.map((delta) => {
+    const rate = Math.max(0, annualRate + delta);
+    const r = calculateEmi(principal, rate, months);
+    return { delta, rate, emi: r.emi, totalInterest: r.totalInterest, emiDiff: r.emi - base.emi, interestDiff: r.totalInterest - base.totalInterest };
+  });
+}
