@@ -482,3 +482,27 @@ test("switching lump sum mode changes EMI and share URL", async () => {
   await userEvent.click(within(group).getByRole("radio", { name: "Reduce tenure" }));
   expect(window.location.search).not.toContain("lumpMode");
 });
+
+test("tenure in years gives same EMI as months and keeps storing months", async () => {
+  const { unmount } = render(<App />);
+  const emiOf = () => within(screen.getByLabelText("Summary")).getByText(/Monthly EMI/).parentElement!.textContent;
+  const months = screen.getByLabelText("Tenure (months)");
+  await userEvent.clear(months);
+  await userEvent.type(months, "60");
+  const expected = emiOf();
+  await userEvent.click(screen.getByRole("radio", { name: "Years" }));
+  const years = screen.getByLabelText("Tenure (years)");
+  expect(years).toHaveValue("5");
+  await userEvent.clear(years);
+  await userEvent.type(years, "7");
+  await userEvent.clear(years);
+  await userEvent.type(years, "5");
+  expect(emiOf()).toBe(expected);
+  expect(window.location.search).toContain("months=60");
+  await userEvent.type(years, ".05");
+  expect(screen.getByText("= 61 months")).toBeInTheDocument();
+  expect(window.location.search).toContain("months=61");
+  await userEvent.click(screen.getByRole("radio", { name: "Months" }));
+  expect(screen.getByLabelText("Tenure (months)")).toHaveValue("61");
+  unmount();
+});
