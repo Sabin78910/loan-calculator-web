@@ -17,6 +17,7 @@ export function loadInputs(store: Store, defaults: Inputs): Inputs {
       const v = data.inputs[k];
       if (typeof v === "string" && (v.trim() === "" ? k !== "principal" && k !== "rate" && k !== "months" : Number.isFinite(Number(v)))) out[k] = v.trim();
     }
+    if (data.inputs.lumpMode === "emi") out.lumpMode = "emi";
     if (typeof data.inputs.changes === "string") {
       const changes = encodeChanges(decodeChanges(data.inputs.changes));
       if (changes) out.changes = changes;

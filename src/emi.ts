@@ -46,7 +46,13 @@ export function balanceChartData(rows: Row[], principal: number): ChartPoint[] {
   return pts;
 }
 
-export interface Extras { monthly?: number; lumpSum?: number; lumpMonth?: number; }
+export type LumpMode = "tenure" | "emi";
+export interface Extras { monthly?: number; lumpSum?: number; lumpMonth?: number; lumpMode?: LumpMode; }
+
+/** EMI for the balance left after a lump sum, spread over the remaining months (0 when nothing is left). */
+export function emiAfterLump(balance: number, annualRate: number, remainingMonths: number): number {
+  return balance > 0.005 && remainingMonths >= 1 ? calculateEmi(balance, annualRate, remainingMonths).emi : 0;
+}
 
 /** Bi-weekly payment modelled as one extra EMI per year: an added EMI/12 each month. */
 export function biweeklyExtras(emi: number, extras: Extras = {}): Extras {
@@ -66,17 +72,24 @@ export function normalizeRateChanges(changes: RateChange[], months: number): Rat
 
 /** Schedule where the EMI is recomputed on the remaining balance and term at each rate change (tenure stays fixed). */
 export function schedule(principal: number, annualRate: number, months: number, extras: Extras = {}, rateChanges: RateChange[] = []): Row[] {
+  return simulate(principal, annualRate, months, extras, rateChanges).rows;
+}
+
+function simulate(principal: number, annualRate: number, months: number, extras: Extras, rateChanges: RateChange[]): { rows: Row[]; lumpEmi: number | null } {
   let { emi } = calculateEmi(principal, annualRate, months);
-  const { monthly = 0, lumpSum = 0, lumpMonth = 1 } = extras;
+  const { monthly = 0, lumpSum = 0, lumpMonth = 1, lumpMode = "tenure" } = extras;
   if (!(monthly >= 0) || !(lumpSum >= 0)) throw new Error("Extra payments cannot be negative");
   if (lumpSum > 0 && (!Number.isInteger(lumpMonth) || lumpMonth < 1)) throw new Error("Extra lump sum month must be at least 1");
   const changes = new Map(normalizeRateChanges(rateChanges, months).map((c) => [c.fromMonth, c.annualRate]));
-  let r = annualRate / 12 / 100;
+  let rate = annualRate;
+  let r = rate / 12 / 100;
   let balance = principal;
+  let lumpEmi: number | null = null;
   const rows: Row[] = [];
   for (let month = 1; month <= months && balance > 0.005; month++) {
     const newRate = changes.get(month);
     if (newRate !== undefined) {
+      rate = newRate;
       r = newRate / 12 / 100;
       emi = calculateEmi(balance, newRate, months - month + 1).emi;
     }
@@ -86,9 +99,13 @@ export function schedule(principal: number, annualRate: number, months: number, 
     const p = month === months ? balance : Math.min(balance, emi - interest + extra);
     balance = Math.max(0, balance - p);
     rows.push({ month, principal: p, interest, extra, balance: balance < 0.005 ? 0 : balance });
+    if (month === lumpMonth && lumpSum > 0) {
+      if (lumpMode === "emi" && month < months) emi = emiAfterLump(balance, rate, months - month);
+      lumpEmi = balance < 0.005 ? 0 : emi;
+    }
     if (balance < 0.005) break;
   }
-  return rows;
+  return { rows, lumpEmi };
 }
 
 export function extraSavings(principal: number, annualRate: number, months: number, extras: Extras = {}, rateChanges: RateChange[] = []): { interestSaved: number; monthsSaved: number } {
@@ -96,6 +113,13 @@ export function extraSavings(principal: number, annualRate: number, months: numb
   const withExtras = schedule(principal, annualRate, months, extras, rateChanges);
   const base = schedule(principal, annualRate, months, {}, rateChanges);
   return { interestSaved: Math.max(0, sum(base) - sum(withExtras)), monthsSaved: base.length - withExtras.length };
+}
+
+/** EMI after the lump sum plus savings versus no extras; null when there is no lump sum. */
+export function lumpOutcome(principal: number, annualRate: number, months: number, extras: Extras, rateChanges: RateChange[] = []): { newEmi: number; interestSaved: number; monthsSaved: number } | null {
+  if (!((extras.lumpSum ?? 0) > 0)) return null;
+  const { lumpEmi } = simulate(principal, annualRate, months, extras, rateChanges);
+  return { newEmi: lumpEmi ?? 0, ...extraSavings(principal, annualRate, months, extras, rateChanges) };
 }
 
 export const money = (n: number) => n.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 });

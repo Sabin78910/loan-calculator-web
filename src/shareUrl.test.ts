@@ -44,3 +44,12 @@ test("currency is in the link when not the default, round-trips, and invalid cod
   expect(parseInputs("?currency=none", defaults).currency).toBe("none");
   expect(parseInputs("?currency=XYZ", { ...defaults, currency: "NPR" }).currency).toBe("NPR");
 });
+test("lump mode is in the link only for emi, round-trips, and old links default", () => {
+  const v = { ...defaults, lump: "20000", lumpMode: "emi" };
+  expect(serializeInputs({ ...defaults, lump: "20000", lumpMode: "tenure" })).not.toContain("lumpMode");
+  expect(serializeInputs({ ...defaults, lumpMode: "emi" })).not.toContain("lumpMode");
+  expect(serializeInputs(v)).toContain("lumpMode=emi");
+  expect(parseInputs(serializeInputs(v), defaults).lumpMode).toBe("emi");
+  expect(parseInputs("?principal=1000", defaults).lumpMode).toBeUndefined();
+  expect(parseInputs("?lumpMode=bogus", defaults).lumpMode).toBeUndefined();
+});

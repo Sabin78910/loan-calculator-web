@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
-import { breakdown, calculateEmi, maxLoan, extraSavings, money, schedule } from "./emi";
+import { breakdown, calculateEmi, maxLoan, extraSavings, lumpOutcome, money, schedule } from "./emi";
 
 beforeEach(() => { window.history.replaceState(null, "", "/"); window.localStorage.clear(); });
 
@@ -461,4 +461,24 @@ test("currency from the share URL is applied", () => {
   render(<App />);
   expect(screen.getByLabelText("Currency")).toHaveValue("GBP");
   expect(screen.getByLabelText("Summary")).toHaveTextContent("£");
+});
+
+test("switching lump sum mode changes EMI and share URL", async () => {
+  render(<App />);
+  expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByText("Advanced"));
+  await userEvent.type(screen.getByLabelText("One-time lump sum (NPR)"), "100000");
+  const group = screen.getByRole("radiogroup", { name: "After the lump sum" });
+  expect(within(group).getByRole("radio", { name: "Reduce tenure" })).toBeChecked();
+  const before = calculateEmi(500000, 12, 60).emi;
+  await userEvent.click(within(group).getByRole("radio", { name: "Reduce EMI" }));
+  const rows = schedule(500000, 12, 60, { lumpSum: 100000, lumpMonth: 1, lumpMode: "emi" });
+  const out = lumpOutcome(500000, 12, 60, { lumpSum: 100000, lumpMonth: 1, lumpMode: "emi" })!;
+  expect(out.newEmi).toBeLessThan(before);
+  expect(rows).toHaveLength(60);
+  expect(screen.getByText(new RegExp(`New EMI.*${money(out.newEmi).replace(/[.,]/g, "\\$&")}`))).toBeInTheDocument();
+  expect(screen.getByText(new RegExp(`Interest saved.*${money(out.interestSaved).replace(/[.,]/g, "\\$&")}`))).toBeInTheDocument();
+  expect(window.location.search).toContain("lumpMode=emi");
+  await userEvent.click(within(group).getByRole("radio", { name: "Reduce tenure" }));
+  expect(window.location.search).not.toContain("lumpMode");
 });
