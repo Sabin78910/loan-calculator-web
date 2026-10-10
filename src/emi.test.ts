@@ -1,4 +1,4 @@
-import { apr, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges } from "./emi";
+import { apr, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -291,5 +291,56 @@ describe("rate changes", () => {
     const rows = schedule(500000, 12, 60, { monthly: 2000 }, [{ fromMonth: 12, annualRate: 10 }, { fromMonth: 24, annualRate: 14 }]);
     expect(rows[rows.length - 1].balance).toBe(0);
     expect(extraSavings(500000, 12, 60, { monthly: 2000 }, [{ fromMonth: 12, annualRate: 10 }]).monthsSaved).toBeGreaterThan(0);
+  });
+});
+
+describe("lump sum mode", () => {
+  const sum = (rs: { interest: number }[]) => rs.reduce((s, r) => s + r.interest, 0);
+  it("emiAfterLump recomputes EMI on balance and remaining months", () => {
+    expect(emiAfterLump(1200, 12, 3)).toBeCloseTo(calculateEmi(1200, 12, 3).emi, 9);
+    expect(emiAfterLump(0, 12, 3)).toBe(0);
+  });
+  it("tenure mode is the default and keeps the EMI", () => {
+    const x = { lumpSum: 100000, lumpMonth: 12 };
+    expect(schedule(500000, 12, 60, { ...x, lumpMode: "tenure" })).toEqual(schedule(500000, 12, 60, x));
+    expect(lumpOutcome(500000, 12, 60, x)!.newEmi).toBeCloseTo(calculateEmi(500000, 12, 60).emi, 6);
+  });
+  it("emi mode keeps tenure and lowers the EMI", () => {
+    const x = { lumpSum: 100000, lumpMonth: 12, lumpMode: "emi" as const };
+    const rows = schedule(500000, 12, 60, x);
+    expect(rows).toHaveLength(60);
+    expect(rows[59].balance).toBe(0);
+    const out = lumpOutcome(500000, 12, 60, x)!;
+    const before = calculateEmi(500000, 12, 60).emi;
+    expect(out.newEmi).toBeLessThan(before);
+    expect(out.newEmi).toBeCloseTo(emiAfterLump(rows[11].balance, 12, 48), 6);
+    expect(out.monthsSaved).toBe(0);
+    expect(rows[12].principal + rows[12].interest).toBeCloseTo(out.newEmi, 6);
+  });
+  it("tenure mode saves more interest than emi mode", () => {
+    const t = lumpOutcome(500000, 12, 60, { lumpSum: 100000, lumpMonth: 12, lumpMode: "tenure" })!;
+    const e = lumpOutcome(500000, 12, 60, { lumpSum: 100000, lumpMonth: 12, lumpMode: "emi" })!;
+    expect(t.interestSaved).toBeGreaterThan(e.interestSaved);
+    expect(e.interestSaved).toBeGreaterThan(0);
+    expect(t.monthsSaved).toBeGreaterThan(0);
+    const base = sum(schedule(500000, 12, 60));
+    expect(e.interestSaved).toBeCloseTo(base - sum(schedule(500000, 12, 60, { lumpSum: 100000, lumpMonth: 12, lumpMode: "emi" })), 6);
+  });
+  it("lump sum in the final month clears the loan in both modes", () => {
+    for (const lumpMode of ["tenure", "emi"] as const) {
+      const rows = schedule(500000, 12, 60, { lumpSum: 100000, lumpMonth: 60, lumpMode });
+      expect(rows).toHaveLength(60);
+      expect(rows[59].balance).toBe(0);
+      expect(lumpOutcome(500000, 12, 60, { lumpSum: 100000, lumpMonth: 60, lumpMode })!.newEmi).toBe(0);
+    }
+  });
+  it("zero lump sum has no outcome and changes nothing", () => {
+    expect(lumpOutcome(500000, 12, 60, { lumpSum: 0, lumpMode: "emi" })).toBeNull();
+    expect(schedule(500000, 12, 60, { lumpSum: 0, lumpMode: "emi" })).toEqual(schedule(500000, 12, 60));
+  });
+  it("a lump sum that clears the loan early ends the schedule", () => {
+    const rows = schedule(1000, 12, 12, { lumpSum: 5000, lumpMonth: 3, lumpMode: "emi" });
+    expect(rows).toHaveLength(3);
+    expect(lumpOutcome(1000, 12, 12, { lumpSum: 5000, lumpMonth: 3, lumpMode: "emi" })!.newEmi).toBe(0);
   });
 });

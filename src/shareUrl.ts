@@ -1,5 +1,5 @@
 import { isCurrency } from "./i18n";
-export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string; biweekly?: string; changes?: string; currency?: string };
+export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string; biweekly?: string; lumpMode?: string; changes?: string; currency?: string };
 
 export const MAX_RATE_CHANGES = 5;
 export type RateChangeInput = { month: string; rate: string };
@@ -29,6 +29,7 @@ export function serializeInputs(inputs: Inputs): string {
     const unused = k === "lumpMonth" ? Number(inputs.lump) === 0 : Number(value) === 0;
     if (value.trim() !== "" && !unused) params.set(k, value);
   }
+  if (inputs.lumpMode === "emi" && Number(inputs.lump) > 0) params.set("lumpMode", "emi");
   const changes = encodeChanges(decodeChanges(inputs.changes));
   if (changes) params.set("changes", changes);
   if (isCurrency(inputs.currency) && inputs.currency !== "NPR") params.set("currency", inputs.currency);
@@ -42,6 +43,7 @@ export function parseInputs(search: string, defaults: Inputs): Inputs {
     const v = params.get(k)?.trim();
     if (v && Number.isFinite(Number(v))) out[k] = v;
   }
+  if (params.get("lumpMode") === "emi") out.lumpMode = "emi";
   const changes = encodeChanges(decodeChanges(params.get("changes") ?? undefined));
   if (changes) out.changes = changes;
   const currency = params.get("currency");

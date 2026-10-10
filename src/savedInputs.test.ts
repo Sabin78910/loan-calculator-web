@@ -60,3 +60,11 @@ test("round-trips currency and ignores unknown codes", () => {
   s.setItem(STORAGE_KEY, JSON.stringify({ v: 1, inputs: { ...defaults, currency: "XYZ" } }));
   expect(loadInputs(s, { ...defaults, currency: "NPR" }).currency).toBe("NPR");
 });
+
+test("lump mode is saved, validated, and old saves load without it", () => {
+  const store = (inputs: object) => ({ getItem: () => JSON.stringify({ v: 1, inputs }), setItem() {}, removeItem() {} });
+  const d = { principal: "1", rate: "2", months: "3", extra: "", lump: "", lumpMonth: "1" };
+  expect(loadInputs(store({ lumpMode: "emi" }), d).lumpMode).toBe("emi");
+  expect(loadInputs(store({ lumpMode: "zzz" }), d).lumpMode).toBeUndefined();
+  expect(loadInputs(store({ principal: "5" }), d).lumpMode).toBeUndefined();
+});
