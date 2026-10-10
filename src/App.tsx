@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useEffect, useId, useMemo, useState } from "react";
 import { normalizeRateChanges, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, lumpOutcome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { ChartPoint, LumpMode } from "./emi";
@@ -25,6 +26,8 @@ function useCountUp(target: number, ms = 800) {
   }, [target, canAnimate, ms]);
   return value;
 }
+
+import { monthsToYears, yearsToMonths, type TenureUnit } from "./tenure";
 
 const LangContext = createContext<Lang>("en");
 const CurrencyContext = createContext<Currency>("NPR");
@@ -194,7 +197,8 @@ function Compare() {
   );
 }
 
-function SliderField({ label, sliderLabel, value, onChange, min, max, step, inputMode, info, ...aria }: {
+function SliderField({ label, sliderLabel, value, onChange, min, max, step, inputMode, info, inputValue, onInputChange, extra, ...aria }: {
+  inputValue?: string; onInputChange?: (v: string) => void; extra?: ReactNode;
   info?: string; label: string; sliderLabel: string; value: string; onChange: (v: string) => void;
   min: number; max: number; step: number; inputMode: "decimal" | "numeric";
   "aria-invalid"?: boolean; "aria-describedby"?: string;
@@ -202,8 +206,9 @@ function SliderField({ label, sliderLabel, value, onChange, min, max, step, inpu
   const n = Number(value);
   return (
     <div className="field">
-      <label>{label}<input inputMode={inputMode} value={value} {...aria} onChange={(e) => onChange(e.target.value)} /></label>
+      <label>{label}<input inputMode={inputMode} value={inputValue ?? value} {...aria} onChange={(e) => (onInputChange ?? onChange)(e.target.value)} /></label>
       {info && <InfoButton term={info as "EMI"} />}
+      {extra}
       <input
         type="range" className="slider" aria-label={sliderLabel} min={min} max={max} step={step}
         value={Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : min}
@@ -234,6 +239,14 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [principal, setPrincipal] = useState(initial.principal);
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
+  const [unit, setUnit] = useState<TenureUnit>("months");
+  const [yearsText, setYearsText] = useState("");
+  const chooseUnit = (u: TenureUnit) => { if (u === "years") setYearsText(monthsToYears(Number(months))); setUnit(u); };
+  const changeYears = (text: string) => {
+    setYearsText(text);
+    const m = yearsToMonths(text);
+    setMonths(m === null ? text : String(m));
+  };
   const [extra, setExtra] = useState(initial.extra);
   const [lump, setLump] = useState(initial.lump);
   const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
@@ -367,7 +380,15 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
       <div className="card">
         <SliderField label={t("loanAmount")} sliderLabel={t("loanAmountSlider")} inputMode="decimal" value={principal} onChange={setPrincipal} min={10000} max={10000000} step={10000} {...fieldProps("principal")} />
         <SliderField label={t("ratePerYear")} info="interest rate" sliderLabel={t("rateSlider")} inputMode="decimal" value={rate} onChange={setRate} min={0} max={30} step={0.1} {...fieldProps("rate")} />
-        <SliderField label={t("tenureMonths")} info="tenure" sliderLabel={t("tenureSlider")} inputMode="numeric" value={months} onChange={setMonths} min={1} max={360} step={1} {...fieldProps("months")} />
+        <SliderField label={t(unit === "years" ? "tenureYears" : "tenureMonths")} info="tenure" inputValue={unit === "years" ? yearsText : undefined} onInputChange={unit === "years" ? changeYears : undefined}
+          extra={<>
+            <div role="group" aria-label={t("tenureUnit")} className="unit-toggle">
+              {(["years", "months"] as const).map((u) => (
+                <label className="check" key={u}><input type="radio" name="tenureUnit" value={u} checked={unit === u} onChange={() => chooseUnit(u)} />{t(u === "years" ? "unitYears" : "unitMonths")}</label>
+              ))}
+            </div>
+            {unit === "years" && Number.isFinite(Number(months)) && months !== "" && <p className="muted" aria-live="polite">{t("tenureEquivalent", { months: num(Number(months)) })}</p>}
+          </>} sliderLabel={t("tenureSlider")} inputMode="numeric" value={months} onChange={setMonths} min={1} max={360} step={1} {...fieldProps("months")} />
         <details className="advanced">
           <summary>{t("advanced")}</summary>
           <p className="muted">{t("extraPayments")} <InfoButton term="prepayment" /></p>
