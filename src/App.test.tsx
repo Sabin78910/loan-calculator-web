@@ -506,3 +506,15 @@ test("tenure in years gives same EMI as months and keeps storing months", async 
   expect(screen.getByLabelText("Tenure (months)")).toHaveValue("61");
   unmount();
 });
+
+test("interest-only input changes EMI, validates, and is shared", async () => {
+  render(<App />);
+  const before = screen.getByLabelText("Summary").textContent;
+  const input = screen.getByLabelText(/Interest-only period/);
+  await userEvent.type(input, "6");
+  expect(screen.getByLabelText("Summary").textContent).not.toBe(before);
+  expect(window.location.search).toContain("interestOnly=6");
+  await userEvent.clear(input);
+  await userEvent.type(input, "60");
+  expect(screen.getByRole("alert")).toHaveTextContent("Interest-only period");
+});

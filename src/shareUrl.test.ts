@@ -53,3 +53,9 @@ test("lump mode is in the link only for emi, round-trips, and old links default"
   expect(parseInputs("?principal=1000", defaults).lumpMode).toBeUndefined();
   expect(parseInputs("?lumpMode=bogus", defaults).lumpMode).toBeUndefined();
 });
+
+test("interestOnly round-trips through the URL", () => {
+  const d = { principal: "1", rate: "1", months: "12", extra: "", lump: "", lumpMonth: "1" };
+  expect(parseInputs(serializeInputs({ ...d, interestOnly: "3" }), d).interestOnly).toBe("3");
+  expect(serializeInputs({ ...d, interestOnly: "0" })).not.toContain("interestOnly");
+});
