@@ -1,11 +1,12 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
+import { normalizeRateChanges, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { createContext, useContext } from "react";
 import { formatDate, formatMoney, formatNumber, loadLang, saveLang } from "./i18n";
 import type { Key, Lang } from "./i18n";
 import { translate } from "./i18n";
-import { parseInputs, serializeInputs } from "./shareUrl";
+import { decodeChanges, encodeChanges, MAX_RATE_CHANGES, parseInputs, serializeInputs } from "./shareUrl";
+import type { RateChangeInput } from "./shareUrl";
 import { clearInputs, loadInputs, saveInputs } from "./savedInputs";
 
 function useCountUp(target: number, ms = 800) {
@@ -61,7 +62,7 @@ function SavingsBadge({ interestSaved, monthsSaved }: { interestSaved: number; m
   );
 }
 
-const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "" };
+const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", changes: "" };
 
 function BalanceChart({ points }: { points: ChartPoint[] }) {
   const { t, money, num } = useI18n();
@@ -222,6 +223,9 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   const [lump, setLump] = useState(initial.lump);
   const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
   const [biweekly, setBiweekly] = useState(initial.biweekly === "1");
+  const [changeList, setChangeList] = useState<RateChangeInput[]>(() => decodeChanges(initial.changes));
+  const changes = encodeChanges(changeList);
+  const updateChange = (i: number, patch: Partial<RateChangeInput>) => setChangeList(changeList.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   const [tab, setTab] = useState<"emi" | "afford" | "compare">("emi");
   const [payment, setPayment] = useState("");
   const [tax, setTax] = useState("");
@@ -232,32 +236,38 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
-    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "" }));
-  }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
+    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", changes }));
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly, changes]);
 
   useEffect(() => {
-    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "" };
+    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", changes };
     if ((Object.keys(DEFAULTS) as (keyof typeof DEFAULTS)[]).every((k) => cur[k] === DEFAULTS[k])) clearInputs(window.localStorage);
     else saveInputs(window.localStorage, cur);
-  }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly, changes]);
 
   const clearSaved = () => {
     clearInputs(window.localStorage);
     setPrincipal(DEFAULTS.principal); setRate(DEFAULTS.rate); setMonths(DEFAULTS.months);
-    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setBiweekly(false);
+    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setBiweekly(false); setChangeList([]);
   };
 
   const { result, rows, baseRows, savings, error } = useMemo(() => {
     try {
       const p = Number(principal), r = Number(rate), n = Number(months);
       const base = { monthly: Number(extra || 0), lumpSum: Number(lump || 0), lumpMonth: Number(lumpMonth || 1) };
-      const res = calculateEmi(p, r, n);
+      const rc = decodeChanges(changes).map((c) => ({ fromMonth: Number(c.month), annualRate: Number(c.rate) }));
+      let res = calculateEmi(p, r, n);
       const x = biweekly ? biweeklyExtras(res.emi, base) : base;
-      return { result: res, rows: schedule(p, r, n, x), baseRows: schedule(p, r, n), savings: extraSavings(p, r, n, x), error: null };
+      const rows = schedule(p, r, n, x, rc);
+      if (normalizeRateChanges(rc, n).length > 0) {
+        const totalInterest = schedule(p, r, n, {}, rc).reduce((s, row) => s + row.interest, 0);
+        res = { emi: res.emi, totalInterest, totalPayment: p + totalInterest };
+      }
+      return { result: res, rows, baseRows: schedule(p, r, n, {}, rc), savings: extraSavings(p, r, n, x, rc), error: null };
     } catch (e) {
       return { result: null, rows: [], baseRows: [], savings: null, error: (e as Error).message };
     }
-  }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly, changes]);
 
   const aprResult = useMemo(() => {
     if (!result || upfront === "") return null;
@@ -345,6 +355,18 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
           <label>{t("lumpMonth")}<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
           <label className="check"><input type="checkbox" checked={biweekly} onChange={(e) => setBiweekly(e.target.checked)} />{t("biweekly")}</label>
           <p className="muted">{t("biweeklyNote")}</p>
+          <fieldset className="rate-changes">
+            <legend>{t("rateChanges")}</legend>
+            <p className="muted">{t("rateChangesNote")}</p>
+            {changeList.map((c, i) => (
+              <div className="row" key={i}>
+                <label>{t("rateChangeMonth", { n: i + 1 })}<input inputMode="numeric" value={c.month} onChange={(e) => updateChange(i, { month: e.target.value })} /></label>
+                <label>{t("rateChangeRate", { n: i + 1 })}<input inputMode="decimal" value={c.rate} onChange={(e) => updateChange(i, { rate: e.target.value })} /></label>
+                <button type="button" onClick={() => setChangeList(changeList.filter((_, j) => j !== i))}>{t("removeRateChange", { n: i + 1 })}</button>
+              </div>
+            ))}
+            <button type="button" disabled={changeList.length >= MAX_RATE_CHANGES} onClick={() => setChangeList([...changeList, { month: "", rate: "" }])}>{t("addRateChange")}</button>
+          </fieldset>
           <label>{t("yearlyTax")}<input inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} /></label>
           <label>{t("yearlyInsurance")}<input inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} /></label>
           <label>{t("upfrontFee")}<input inputMode="decimal" value={upfront} onChange={(e) => setUpfront(e.target.value)} /></label>

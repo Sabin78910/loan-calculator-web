@@ -44,3 +44,11 @@ test("survives storage that throws", () => {
   expect(() => saveInputs(bad, defaults)).not.toThrow();
   expect(() => clearInputs(bad)).not.toThrow();
 });
+
+test("round-trips rate changes and drops invalid ones", () => {
+  const s = mem();
+  saveInputs(s, { ...defaults, changes: "24:9.5" });
+  expect(loadInputs(s, defaults).changes).toBe("24:9.5");
+  s.setItem(STORAGE_KEY, JSON.stringify({ v: 1, inputs: { changes: "x:y" } }));
+  expect(loadInputs(s, defaults).changes).toBeUndefined();
+});

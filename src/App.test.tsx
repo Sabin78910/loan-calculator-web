@@ -397,3 +397,30 @@ test("upfront fee shows APR above the nominal rate and validates", async () => {
   expect(screen.getByRole("alert")).toHaveTextContent("Fee cannot be negative");
   expect(screen.queryByText(/^APR:/)).not.toBeInTheDocument();
 });
+
+test("adds and removes rate changes and updates the result", async () => {
+  render(<App />);
+  const summary = screen.getByLabelText("Summary");
+  const before = summary.textContent;
+  const add = screen.getByRole("button", { name: "Add rate change" });
+  await userEvent.click(add);
+  await userEvent.type(screen.getByLabelText("Rate change 1: from month"), "24");
+  await userEvent.type(screen.getByLabelText("Rate change 1: new rate (% per year)"), "15");
+  expect(summary.textContent).not.toBe(before);
+  const expected = schedule(500000, 12, 60, {}, [{ fromMonth: 24, annualRate: 15 }]).reduce((s, r) => s + r.interest, 0);
+  expect(summary).toHaveTextContent(`Total interest: NPR ${money(expected)}`);
+  expect(window.location.search).toContain("changes=24%3A15");
+  await userEvent.click(screen.getByRole("button", { name: "Remove rate change 1" }));
+  expect(screen.queryByLabelText("Rate change 1: from month")).not.toBeInTheDocument();
+  expect(summary.textContent).toBe(before);
+  expect(window.location.search).not.toContain("changes");
+});
+
+test("limits rate changes to five and restores them from the URL", async () => {
+  window.history.replaceState(null, "", "?changes=12:10,24:11");
+  render(<App />);
+  expect(screen.getByLabelText("Rate change 2: new rate (% per year)")).toHaveValue("11");
+  const add = screen.getByRole("button", { name: "Add rate change" });
+  for (let i = 0; i < 3; i++) await userEvent.click(add);
+  expect(add).toBeDisabled();
+});
