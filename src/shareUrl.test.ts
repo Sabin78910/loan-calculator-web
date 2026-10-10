@@ -21,3 +21,9 @@ test("includes extras in the link only when set", () => {
     "?principal=500000&rate=12&months=60&extra=500&lump=20000&lumpMonth=6",
   );
 });
+test("bi-weekly flag is in the link only when on and round-trips", () => {
+  expect(serializeInputs({ ...defaults, biweekly: "" })).not.toContain("biweekly");
+  const v = { ...defaults, biweekly: "1" };
+  expect(serializeInputs(v)).toContain("biweekly=1");
+  expect(parseInputs(serializeInputs(v), defaults).biweekly).toBe("1");
+});

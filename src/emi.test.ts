@@ -1,4 +1,4 @@
-import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity } from "./emi";
+import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -216,4 +216,16 @@ test("rateSensitivity: rate never goes below 0", () => {
 });
 test("rateSensitivity: validates inputs like calculateEmi", () => {
   expect(() => rateSensitivity(0, 10, 12, [0])).toThrow("Principal must be positive");
+});
+
+test("biweeklyExtras: adds EMI/12 monthly, saving interest and months", () => {
+  const { emi } = calculateEmi(500000, 12, 60);
+  const x = biweeklyExtras(emi);
+  expect(x.monthly).toBeCloseTo(emi / 12, 6);
+  const s = extraSavings(500000, 12, 60, x);
+  expect(s.interestSaved).toBeGreaterThan(0);
+  expect(schedule(500000, 12, 60, x).length).toBeLessThan(60);
+});
+test("biweeklyExtras: keeps existing extras and stacks monthly", () => {
+  expect(biweeklyExtras(1200, { monthly: 50, lumpSum: 1000, lumpMonth: 3 })).toEqual({ monthly: 150, lumpSum: 1000, lumpMonth: 3 });
 });

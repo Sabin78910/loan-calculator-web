@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { balanceChartData, breakdown, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, biweeklyExtras, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { createContext, useContext } from "react";
 import { formatDate, formatMoney, formatNumber, loadLang, saveLang } from "./i18n";
@@ -60,7 +60,7 @@ function SavingsBadge({ interestSaved, monthsSaved }: { interestSaved: number; m
   );
 }
 
-const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1" };
+const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "" };
 
 function BalanceChart({ points }: { points: ChartPoint[] }) {
   const { t, money, num } = useI18n();
@@ -220,6 +220,7 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   const [extra, setExtra] = useState(initial.extra);
   const [lump, setLump] = useState(initial.lump);
   const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
+  const [biweekly, setBiweekly] = useState(initial.biweekly === "1");
   const [tab, setTab] = useState<"emi" | "afford" | "compare">("emi");
   const [payment, setPayment] = useState("");
   const [tax, setTax] = useState("");
@@ -228,18 +229,20 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
-    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth }));
-  }, [principal, rate, months, extra, lump, lumpMonth]);
+    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "" }));
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
 
   const { result, rows, baseRows, savings, error } = useMemo(() => {
     try {
       const p = Number(principal), r = Number(rate), n = Number(months);
-      const x = { monthly: Number(extra || 0), lumpSum: Number(lump || 0), lumpMonth: Number(lumpMonth || 1) };
-      return { result: calculateEmi(p, r, n), rows: schedule(p, r, n, x), baseRows: schedule(p, r, n), savings: extraSavings(p, r, n, x), error: null };
+      const base = { monthly: Number(extra || 0), lumpSum: Number(lump || 0), lumpMonth: Number(lumpMonth || 1) };
+      const res = calculateEmi(p, r, n);
+      const x = biweekly ? biweeklyExtras(res.emi, base) : base;
+      return { result: res, rows: schedule(p, r, n, x), baseRows: schedule(p, r, n), savings: extraSavings(p, r, n, x), error: null };
     } catch (e) {
       return { result: null, rows: [], baseRows: [], savings: null, error: (e as Error).message };
     }
-  }, [principal, rate, months, extra, lump, lumpMonth]);
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
 
   const cost = useMemo(() => {
     if (!result) return null;
@@ -315,6 +318,8 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
           <label>{t("monthlyExtra")}<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
           <label>{t("lumpSum")}<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>
           <label>{t("lumpMonth")}<input inputMode="numeric" value={lumpMonth} {...fieldProps("lumpMonth")} onChange={(e) => setLumpMonth(e.target.value)} /></label>
+          <label className="check"><input type="checkbox" checked={biweekly} onChange={(e) => setBiweekly(e.target.checked)} />{t("biweekly")}</label>
+          <p className="muted">{t("biweeklyNote")}</p>
           <label>{t("yearlyTax")}<input inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} /></label>
           <label>{t("yearlyInsurance")}<input inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} /></label>
           <label>{t("monthlyFees")}<input inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></label>
