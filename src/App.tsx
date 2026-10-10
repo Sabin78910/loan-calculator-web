@@ -2,11 +2,11 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { normalizeRateChanges, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { createContext, useContext } from "react";
-import { formatDate, formatMoney, formatNumber, loadLang, saveLang } from "./i18n";
-import type { Key, Lang } from "./i18n";
+import { CURRENCIES, formatDate, formatMoney, formatNumber, isCurrency, loadLang, saveLang } from "./i18n";
+import type { Currency, Key, Lang } from "./i18n";
 import { translate } from "./i18n";
 import { decodeChanges, encodeChanges, MAX_RATE_CHANGES, parseInputs, serializeInputs } from "./shareUrl";
-import type { RateChangeInput } from "./shareUrl";
+import type { Inputs, RateChangeInput } from "./shareUrl";
 import { clearInputs, loadInputs, saveInputs } from "./savedInputs";
 
 function useCountUp(target: number, ms = 800) {
@@ -27,13 +27,21 @@ function useCountUp(target: number, ms = 800) {
 }
 
 const LangContext = createContext<Lang>("en");
+const CurrencyContext = createContext<Currency>("NPR");
+
+/** Translations are written with NPR/रु; swap them for the chosen currency (amounts carry their own symbol). */
+function localizeCurrency(text: string, currency: Currency): string {
+  if (currency === "NPR") return text;
+  return text.replace(/ ?\((NPR|रु)\)/g, currency === "none" ? "" : ` (${currency})`).replace(/(NPR|रु) (?=\S)/g, "");
+}
 
 function useI18n() {
   const lang = useContext(LangContext);
+  const currency = useContext(CurrencyContext);
   return {
     lang,
-    t: (key: Key, params?: Record<string, string | number>) => translate(lang, key, params),
-    money: (n: number) => formatMoney(lang, n),
+    t: (key: Key, params?: Record<string, string | number>) => localizeCurrency(translate(lang, key, params), currency),
+    money: (n: number) => formatMoney(lang, n, currency === "NPR" ? undefined : currency),
     num: (n: number, digits = 0, fixed = true) => formatNumber(lang, n, digits, fixed),
     date: (d: Date) => formatDate(lang, d),
     err: (msg: string) => translate(lang, `err.${msg}` as Key) === `err.${msg}` ? msg : translate(lang, `err.${msg}` as Key),
@@ -62,7 +70,7 @@ function SavingsBadge({ interestSaved, monthsSaved }: { interestSaved: number; m
   );
 }
 
-const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", changes: "" };
+const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", changes: "", currency: "NPR" };
 
 function BalanceChart({ points }: { points: ChartPoint[] }) {
   const { t, money, num } = useI18n();
@@ -208,14 +216,21 @@ function SliderField({ label, sliderLabel, value, onChange, min, max, step, inpu
 export default function App() {
   const [lang, setLang] = useState<Lang>(() => loadLang(navigator.language));
   const chooseLang = (l: Lang) => { setLang(l); saveLang(l); };
-  return <LangContext.Provider value={lang}><Calculator lang={lang} chooseLang={chooseLang} /></LangContext.Provider>;
+  const [initial] = useState(() => parseInputs(window.location.search, loadInputs(window.localStorage, DEFAULTS)));
+  const [currency, setCurrency] = useState<Currency>(() => (isCurrency(initial.currency) ? initial.currency : "NPR"));
+  return (
+    <LangContext.Provider value={lang}>
+      <CurrencyContext.Provider value={currency}>
+        <Calculator lang={lang} chooseLang={chooseLang} initial={initial} currency={currency} setCurrency={setCurrency} />
+      </CurrencyContext.Provider>
+    </LangContext.Provider>
+  );
 }
 
-function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) => void }) {
+function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang: Lang; chooseLang: (l: Lang) => void; initial: Inputs; currency: Currency; setCurrency: (c: Currency) => void }) {
   const { t, money, num, date, err } = useI18n();
   const signed = (n: number) => (n > 0.005 ? "+" : n < -0.005 ? "−" : "") + money(Math.abs(n));
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
-  const [initial] = useState(() => parseInputs(window.location.search, loadInputs(window.localStorage, DEFAULTS)));
   const [principal, setPrincipal] = useState(initial.principal);
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
@@ -236,19 +251,19 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
-    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", changes }));
-  }, [principal, rate, months, extra, lump, lumpMonth, biweekly, changes]);
+    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", changes, currency }));
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly, changes, currency]);
 
   useEffect(() => {
-    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", changes };
+    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", changes, currency };
     if ((Object.keys(DEFAULTS) as (keyof typeof DEFAULTS)[]).every((k) => cur[k] === DEFAULTS[k])) clearInputs(window.localStorage);
     else saveInputs(window.localStorage, cur);
-  }, [principal, rate, months, extra, lump, lumpMonth, biweekly, changes]);
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly, changes, currency]);
 
   const clearSaved = () => {
     clearInputs(window.localStorage);
     setPrincipal(DEFAULTS.principal); setRate(DEFAULTS.rate); setMonths(DEFAULTS.months);
-    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setBiweekly(false); setChangeList([]);
+    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setBiweekly(false); setChangeList([]); setCurrency("NPR");
   };
 
   const { result, rows, baseRows, savings, error } = useMemo(() => {
@@ -318,6 +333,11 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
         <button type="button" lang="en" aria-pressed={lang === "en"} onClick={() => chooseLang("en")}>EN</button>
         <button type="button" lang="ne" aria-pressed={lang === "ne"} onClick={() => chooseLang("ne")}>नेपाली</button>
       </div>
+      <label className="no-print">{t("currency")}
+        <select value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}>
+          {CURRENCIES.map((c) => <option key={c} value={c}>{c === "none" ? t("currencyNone") : c}</option>)}
+        </select>
+      </label>
       <h1>{t("title")}</h1>
       <div className="row segmented no-print" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "emi"} onClick={() => setTab("emi")}>{t("tabCalc")}</button>

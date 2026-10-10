@@ -3,6 +3,8 @@ export type Lang = "en" | "ne";
 export const EN = {
   title: "Loan Calculator",
   language: "Language",
+  currency: "Currency",
+  currencyNone: "None",
   tabCalc: "Calculator",
   tabAfford: "Affordability",
   tabCompare: "Compare",
@@ -131,6 +133,8 @@ export type Key = keyof typeof EN;
 export const NE: Record<Key, string> = {
   title: "ऋण क्याल्कुलेटर",
   language: "भाषा",
+  currency: "मुद्रा",
+  currencyNone: "कुनै पनि होइन",
   tabCalc: "क्याल्कुलेटर",
   tabAfford: "वहन क्षमता",
   tabCompare: "तुलना",
@@ -276,6 +280,14 @@ export function saveLang(lang: Lang) {
   try { localStorage.setItem(STORAGE_KEY, lang); } catch { /* storage unavailable */ }
 }
 
-export const formatMoney = (lang: Lang, n: number) => n.toLocaleString(LOCALES[lang], { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+export const CURRENCIES = ["NPR", "INR", "USD", "EUR", "GBP", "none"] as const;
+export type Currency = (typeof CURRENCIES)[number];
+export const isCurrency = (v: unknown): v is Currency => (CURRENCIES as readonly unknown[]).includes(v);
+
+export function formatMoney(lang: Lang, n: number, currency?: Currency): string {
+  const digits = { maximumFractionDigits: 2, minimumFractionDigits: 2 };
+  if (!currency || currency === "none") return n.toLocaleString(LOCALES[lang], digits);
+  return n.toLocaleString(LOCALES[lang], { ...digits, style: "currency", currency });
+}
 export const formatNumber = (lang: Lang, n: number, digits = 0, fixed = true) => n.toLocaleString(LOCALES[lang], { maximumFractionDigits: digits, minimumFractionDigits: fixed ? digits : 0 });
 export const formatDate = (lang: Lang, d: Date) => d.toLocaleDateString(lang === "ne" ? "ne-NP" : "en-US", { month: "long", year: "numeric" });

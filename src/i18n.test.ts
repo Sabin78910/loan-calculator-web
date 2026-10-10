@@ -33,3 +33,16 @@ test("formats numbers and dates per language", () => {
   expect(formatDate("ne", new Date(2030, 0, 15))).toMatch(/[०-९]/);
   expect(formatDate("en", new Date(2030, 0, 15))).toBe("January 2030");
 });
+
+test("formatMoney without currency or with none keeps bare output", () => {
+  expect(formatMoney("en", 1234.5, "none")).toBe("1,234.50");
+  expect(formatMoney("en", 1234.5, undefined)).toBe("1,234.50");
+});
+
+test.each([["NPR", /NPR|रु|नेरू/], ["INR", /₹/], ["USD", /\$/], ["EUR", /€/], ["GBP", /£/]] as const)("formatMoney shows %s symbol in en and ne", (code, re) => {
+  expect(formatMoney("en", 1234.5, code)).toMatch(re);
+  expect(formatMoney("en", 1234.5, code)).toMatch(/1,234\.50/);
+  const ne = formatMoney("ne", 1234.5, code);
+  expect(ne).toMatch(re);
+  expect(ne).toMatch(/[०-९]/);
+});

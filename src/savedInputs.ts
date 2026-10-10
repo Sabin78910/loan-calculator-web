@@ -1,3 +1,4 @@
+import { isCurrency } from "./i18n";
 import { decodeChanges, encodeChanges } from "./shareUrl";
 import type { Inputs } from "./shareUrl";
 
@@ -20,6 +21,7 @@ export function loadInputs(store: Store, defaults: Inputs): Inputs {
       const changes = encodeChanges(decodeChanges(data.inputs.changes));
       if (changes) out.changes = changes;
     }
+    if (isCurrency(data.inputs.currency)) out.currency = data.inputs.currency;
     return out;
   } catch {
     return defaults;
