@@ -344,3 +344,30 @@ describe("lump sum mode", () => {
     expect(lumpOutcome(1000, 12, 12, { lumpSum: 5000, lumpMonth: 3, lumpMode: "emi" })!.newEmi).toBe(0);
   });
 });
+
+describe("interest-only period", () => {
+  test("0 months leaves results unchanged", () => {
+    expect(calculateEmi(100000, 12, 12, 0)).toEqual(calculateEmi(100000, 12, 12));
+    expect(schedule(100000, 12, 12, { interestOnlyMonths: 0 })).toEqual(schedule(100000, 12, 12));
+  });
+
+  test("known values: interest-only rows then EMI over remaining tenure", () => {
+    const res = calculateEmi(120000, 12, 12, 2);
+    expect(res.emi).toBeCloseTo(calculateEmi(120000, 12, 10).emi, 6);
+    expect(res.totalInterest).toBeCloseTo(res.emi * 10 + 2400 - 120000, 6);
+    const rows = schedule(120000, 12, 12, { interestOnlyMonths: 2 });
+    expect(rows).toHaveLength(12);
+    expect(rows[0]).toMatchObject({ month: 1, principal: 0, interest: 1200, balance: 120000 });
+    expect(rows[1]).toMatchObject({ principal: 0, interest: 1200, balance: 120000 });
+    expect(rows[2].principal).toBeGreaterThan(0);
+    expect(rows[11].balance).toBe(0);
+    expect(rows.reduce((s, r) => s + r.interest, 0)).toBeCloseTo(res.totalInterest, 4);
+  });
+
+  test("validation", () => {
+    expect(() => calculateEmi(1000, 10, 12, -1)).toThrow(/Interest-only/);
+    expect(() => calculateEmi(1000, 10, 12, 1.5)).toThrow(/Interest-only/);
+    expect(() => calculateEmi(1000, 10, 60, 25)).toThrow(/Interest-only/);
+    expect(() => calculateEmi(1000, 10, 12, 12)).toThrow(/less than the tenure/);
+  });
+});

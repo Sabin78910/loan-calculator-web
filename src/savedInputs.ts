@@ -4,7 +4,7 @@ import type { Inputs } from "./shareUrl";
 
 export const STORAGE_KEY = "loan-calculator:inputs";
 const VERSION = 1;
-const FIELDS = ["principal", "rate", "months", "extra", "lump", "lumpMonth", "biweekly"] as const;
+const FIELDS = ["principal", "rate", "months", "extra", "lump", "lumpMonth", "biweekly", "interestOnly"] as const;
 
 type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 

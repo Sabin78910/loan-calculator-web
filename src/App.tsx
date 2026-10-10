@@ -73,7 +73,7 @@ function SavingsBadge({ interestSaved, monthsSaved }: { interestSaved: number; m
   );
 }
 
-const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", lumpMode: "", changes: "", currency: "NPR" };
+const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", interestOnly: "", lumpMode: "", changes: "", currency: "NPR" };
 
 function BalanceChart({ points }: { points: ChartPoint[] }) {
   const { t, money, num } = useI18n();
@@ -252,6 +252,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [lumpMonth, setLumpMonth] = useState(initial.lumpMonth);
   const [lumpMode, setLumpMode] = useState<LumpMode>(initial.lumpMode === "emi" ? "emi" : "tenure");
   const [biweekly, setBiweekly] = useState(initial.biweekly === "1");
+  const [interestOnly, setInterestOnly] = useState(initial.interestOnly ?? "");
   const [changeList, setChangeList] = useState<RateChangeInput[]>(() => decodeChanges(initial.changes));
   const changes = encodeChanges(changeList);
   const updateChange = (i: number, patch: Partial<RateChangeInput>) => setChangeList(changeList.map((c, j) => (j === i ? { ...c, ...patch } : c)));
@@ -265,19 +266,19 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
-    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency }));
-  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, changes, currency]);
+    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency }));
+  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes, currency]);
 
   useEffect(() => {
-    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency };
+    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency };
     if ((Object.keys(DEFAULTS) as (keyof typeof DEFAULTS)[]).every((k) => cur[k] === DEFAULTS[k])) clearInputs(window.localStorage);
     else saveInputs(window.localStorage, cur);
-  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, changes, currency]);
+  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes, currency]);
 
   const clearSaved = () => {
     clearInputs(window.localStorage);
     setPrincipal(DEFAULTS.principal); setRate(DEFAULTS.rate); setMonths(DEFAULTS.months);
-    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setLumpMode("tenure"); setBiweekly(false); setChangeList([]); setCurrency("NPR");
+    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setLumpMode("tenure"); setBiweekly(false); setInterestOnly(DEFAULTS.interestOnly); setChangeList([]); setCurrency("NPR");
   };
 
   const { result, rows, baseRows, savings, lump: lumpResult, error } = useMemo(() => {
@@ -285,18 +286,21 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
       const p = Number(principal), r = Number(rate), n = Number(months);
       const base = { monthly: Number(extra || 0), lumpSum: Number(lump || 0), lumpMonth: Number(lumpMonth || 1), lumpMode };
       const rc = decodeChanges(changes).map((c) => ({ fromMonth: Number(c.month), annualRate: Number(c.rate) }));
-      let res = calculateEmi(p, r, n);
-      const x = biweekly ? biweeklyExtras(res.emi, base) : base;
+      const io = Number(interestOnly || 0);
+      let res = calculateEmi(p, r, n, io);
+      const plain = { ...base, interestOnlyMonths: io };
+      const x = biweekly ? biweeklyExtras(res.emi, plain) : plain;
       const rows = schedule(p, r, n, x, rc);
+      const noExtras = { interestOnlyMonths: io };
       if (normalizeRateChanges(rc, n).length > 0) {
-        const totalInterest = schedule(p, r, n, {}, rc).reduce((s, row) => s + row.interest, 0);
+        const totalInterest = schedule(p, r, n, noExtras, rc).reduce((s, row) => s + row.interest, 0);
         res = { emi: res.emi, totalInterest, totalPayment: p + totalInterest };
       }
-      return { result: res, rows, baseRows: schedule(p, r, n, {}, rc), savings: extraSavings(p, r, n, x, rc), lump: lumpOutcome(p, r, n, base, rc), error: null };
+      return { result: res, rows, baseRows: schedule(p, r, n, noExtras, rc), savings: extraSavings(p, r, n, x, rc), lump: lumpOutcome(p, r, n, plain, rc), error: null };
     } catch (e) {
       return { result: null, rows: [], baseRows: [], savings: null, lump: null, error: (e as Error).message };
     }
-  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, changes]);
+  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes]);
 
   const aprResult = useMemo(() => {
     if (!result || upfront === "") return null;
@@ -391,6 +395,8 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
           </>} sliderLabel={t("tenureSlider")} inputMode="numeric" value={months} onChange={setMonths} min={1} max={360} step={1} {...fieldProps("months")} />
         <details className="advanced">
           <summary>{t("advanced")}</summary>
+          <label>{t("interestOnly")}<input inputMode="numeric" value={interestOnly} onChange={(e) => setInterestOnly(e.target.value)} /></label>
+          <p className="muted">{t("interestOnlyNote")}</p>
           <p className="muted">{t("extraPayments")} <InfoButton term="prepayment" /></p>
           <label>{t("monthlyExtra")}<input inputMode="decimal" value={extra} {...fieldProps("extra")} onChange={(e) => setExtra(e.target.value)} /></label>
           <label>{t("lumpSum")}<input inputMode="decimal" value={lump} {...fieldProps("extra")} onChange={(e) => setLump(e.target.value)} /></label>

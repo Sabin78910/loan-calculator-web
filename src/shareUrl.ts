@@ -1,5 +1,5 @@
 import { isCurrency } from "./i18n";
-export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string; biweekly?: string; lumpMode?: string; changes?: string; currency?: string };
+export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string; biweekly?: string; interestOnly?: string; lumpMode?: string; changes?: string; currency?: string };
 
 export const MAX_RATE_CHANGES = 5;
 export type RateChangeInput = { month: string; rate: string };
@@ -19,7 +19,7 @@ export function decodeChanges(s: string | undefined): RateChangeInput[] {
 }
 
 const KEYS = ["principal", "rate", "months"] as const;
-const OPTIONAL_KEYS = ["extra", "lump", "lumpMonth", "biweekly"] as const;
+const OPTIONAL_KEYS = ["extra", "lump", "lumpMonth", "biweekly", "interestOnly"] as const;
 
 export function serializeInputs(inputs: Inputs): string {
   const params = new URLSearchParams();

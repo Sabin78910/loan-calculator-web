@@ -1,13 +1,23 @@
 export interface EmiResult { emi: number; totalPayment: number; totalInterest: number; }
 export interface Row { month: number; principal: number; interest: number; extra: number; balance: number; }
 
-export function calculateEmi(principal: number, annualRate: number, months: number): EmiResult {
+export const MAX_INTEREST_ONLY_MONTHS = 24;
+
+export function validateInterestOnly(interestOnlyMonths: number, months: number): void {
+  if (!Number.isInteger(interestOnlyMonths) || interestOnlyMonths < 0 || interestOnlyMonths > MAX_INTEREST_ONLY_MONTHS) throw new Error(`Interest-only period must be a whole number of months from 0 to ${MAX_INTEREST_ONLY_MONTHS}`);
+  if (interestOnlyMonths >= months) throw new Error("Interest-only period must be less than the tenure");
+}
+
+/** EMI over the months left after an optional interest-only (moratorium) period; totals include the interest-only payments. */
+export function calculateEmi(principal: number, annualRate: number, months: number, interestOnlyMonths = 0): EmiResult {
   if (!(principal > 0)) throw new Error("Principal must be positive");
   if (!(annualRate >= 0)) throw new Error("Rate cannot be negative");
   if (!Number.isInteger(months) || months < 1) throw new Error("Tenure must be at least 1 month");
+  validateInterestOnly(interestOnlyMonths, months);
   const r = annualRate / 12 / 100;
-  const emi = r === 0 ? principal / months : (principal * r * (1 + r) ** months) / ((1 + r) ** months - 1);
-  const totalPayment = emi * months;
+  const n = months - interestOnlyMonths;
+  const emi = r === 0 ? principal / n : (principal * r * (1 + r) ** n) / ((1 + r) ** n - 1);
+  const totalPayment = emi * n + principal * r * interestOnlyMonths;
   return { emi, totalPayment, totalInterest: totalPayment - principal };
 }
 
@@ -47,7 +57,7 @@ export function balanceChartData(rows: Row[], principal: number): ChartPoint[] {
 }
 
 export type LumpMode = "tenure" | "emi";
-export interface Extras { monthly?: number; lumpSum?: number; lumpMonth?: number; lumpMode?: LumpMode; }
+export interface Extras { monthly?: number; lumpSum?: number; lumpMonth?: number; lumpMode?: LumpMode; interestOnlyMonths?: number; }
 
 /** EMI for the balance left after a lump sum, spread over the remaining months (0 when nothing is left). */
 export function emiAfterLump(balance: number, annualRate: number, remainingMonths: number): number {
@@ -76,8 +86,8 @@ export function schedule(principal: number, annualRate: number, months: number, 
 }
 
 function simulate(principal: number, annualRate: number, months: number, extras: Extras, rateChanges: RateChange[]): { rows: Row[]; lumpEmi: number | null } {
-  let { emi } = calculateEmi(principal, annualRate, months);
-  const { monthly = 0, lumpSum = 0, lumpMonth = 1, lumpMode = "tenure" } = extras;
+  const { monthly = 0, lumpSum = 0, lumpMonth = 1, lumpMode = "tenure", interestOnlyMonths = 0 } = extras;
+  let { emi } = calculateEmi(principal, annualRate, months, interestOnlyMonths);
   if (!(monthly >= 0) || !(lumpSum >= 0)) throw new Error("Extra payments cannot be negative");
   if (lumpSum > 0 && (!Number.isInteger(lumpMonth) || lumpMonth < 1)) throw new Error("Extra lump sum month must be at least 1");
   const changes = new Map(normalizeRateChanges(rateChanges, months).map((c) => [c.fromMonth, c.annualRate]));
@@ -91,9 +101,13 @@ function simulate(principal: number, annualRate: number, months: number, extras:
     if (newRate !== undefined) {
       rate = newRate;
       r = newRate / 12 / 100;
-      emi = calculateEmi(balance, newRate, months - month + 1).emi;
+      emi = calculateEmi(balance, newRate, months - Math.max(month, interestOnlyMonths + 1) + 1).emi;
     }
     const interest = balance * r;
+    if (month <= interestOnlyMonths) {
+      rows.push({ month, principal: 0, interest, extra: 0, balance });
+      continue;
+    }
     const wanted = month === lumpMonth ? monthly + lumpSum : monthly;
     const extra = Math.min(wanted, Math.max(0, balance - (emi - interest)));
     const p = month === months ? balance : Math.min(balance, emi - interest + extra);
@@ -111,7 +125,7 @@ function simulate(principal: number, annualRate: number, months: number, extras:
 export function extraSavings(principal: number, annualRate: number, months: number, extras: Extras = {}, rateChanges: RateChange[] = []): { interestSaved: number; monthsSaved: number } {
   const sum = (rows: Row[]) => rows.reduce((s, r) => s + r.interest, 0);
   const withExtras = schedule(principal, annualRate, months, extras, rateChanges);
-  const base = schedule(principal, annualRate, months, {}, rateChanges);
+  const base = schedule(principal, annualRate, months, { interestOnlyMonths: extras.interestOnlyMonths }, rateChanges);
   return { interestSaved: Math.max(0, sum(base) - sum(withExtras)), monthsSaved: base.length - withExtras.length };
 }
 
