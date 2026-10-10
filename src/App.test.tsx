@@ -424,3 +424,41 @@ test("limits rate changes to five and restores them from the URL", async () => {
   for (let i = 0; i < 3; i++) await userEvent.click(add);
   expect(add).toBeDisabled();
 });
+
+test("currency selector changes displayed amounts, share URL and saved choice, not CSV", async () => {
+  render(<App />);
+  const sel = screen.getByLabelText("Currency");
+  expect(sel).toHaveValue("NPR");
+  const emi = calculateEmi(500000, 12, 60).emi;
+  await userEvent.selectOptions(sel, "USD");
+  const card = screen.getByLabelText("Summary");
+  expect(card).toHaveTextContent(`$${money(emi)}`);
+  expect(card).not.toHaveTextContent("NPR");
+  expect(screen.getByLabelText("Loan amount (USD)")).toBeInTheDocument();
+  expect(window.location.search).toContain("currency=USD");
+  expect(window.localStorage.getItem("loan-calculator:inputs")).toContain('"currency":"USD"');
+  await userEvent.selectOptions(sel, "none");
+  expect(screen.getByLabelText("Summary")).toHaveTextContent(`Monthly EMI: ${money(emi)}`);
+  expect(screen.getByLabelText("Summary")).not.toHaveTextContent(/NPR|\$/);
+  expect(screen.getByLabelText("Loan amount")).toBeInTheDocument();
+});
+
+test("CSV output is unaffected by currency", async () => {
+  let blob: Blob | undefined;
+  Object.assign(URL, { createObjectURL: vi.fn((b: Blob) => { blob = b; return "blob:x"; }), revokeObjectURL: vi.fn() });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  render(<App />);
+  await userEvent.selectOptions(screen.getByLabelText("Currency"), "EUR");
+  await userEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+  const text = await blob!.text();
+  expect(text).not.toMatch(/€|EUR|NPR/);
+  expect(text.startsWith("Month,Principal,Interest,Extra,Balance")).toBe(true);
+  click.mockRestore();
+});
+
+test("currency from the share URL is applied", () => {
+  window.history.replaceState(null, "", "/?currency=GBP");
+  render(<App />);
+  expect(screen.getByLabelText("Currency")).toHaveValue("GBP");
+  expect(screen.getByLabelText("Summary")).toHaveTextContent("£");
+});

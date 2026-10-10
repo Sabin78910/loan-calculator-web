@@ -1,4 +1,5 @@
-export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string; biweekly?: string; changes?: string };
+import { isCurrency } from "./i18n";
+export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string; biweekly?: string; changes?: string; currency?: string };
 
 export const MAX_RATE_CHANGES = 5;
 export type RateChangeInput = { month: string; rate: string };
@@ -30,6 +31,7 @@ export function serializeInputs(inputs: Inputs): string {
   }
   const changes = encodeChanges(decodeChanges(inputs.changes));
   if (changes) params.set("changes", changes);
+  if (isCurrency(inputs.currency) && inputs.currency !== "NPR") params.set("currency", inputs.currency);
   return `?${params.toString()}`;
 }
 
@@ -42,5 +44,7 @@ export function parseInputs(search: string, defaults: Inputs): Inputs {
   }
   const changes = encodeChanges(decodeChanges(params.get("changes") ?? undefined));
   if (changes) out.changes = changes;
+  const currency = params.get("currency");
+  if (isCurrency(currency)) out.currency = currency;
   return out;
 }

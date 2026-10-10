@@ -52,3 +52,11 @@ test("round-trips rate changes and drops invalid ones", () => {
   s.setItem(STORAGE_KEY, JSON.stringify({ v: 1, inputs: { changes: "x:y" } }));
   expect(loadInputs(s, defaults).changes).toBeUndefined();
 });
+
+test("round-trips currency and ignores unknown codes", () => {
+  const s = mem();
+  saveInputs(s, { ...defaults, currency: "GBP" });
+  expect(loadInputs(s, { ...defaults, currency: "NPR" }).currency).toBe("GBP");
+  s.setItem(STORAGE_KEY, JSON.stringify({ v: 1, inputs: { ...defaults, currency: "XYZ" } }));
+  expect(loadInputs(s, { ...defaults, currency: "NPR" }).currency).toBe("NPR");
+});

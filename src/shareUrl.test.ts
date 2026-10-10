@@ -36,3 +36,11 @@ test("rate changes are in the link only when set, round-trip, and bad entries ar
   expect(parseInputs("?changes=24:abc,x:5,30:8", defaults).changes).toBe("30:8");
   expect(parseInputs("?changes=1:1,2:2,3:3,4:4,5:5,6:6", defaults).changes).toBe("1:1,2:2,3:3,4:4,5:5");
 });
+
+test("currency is in the link when not the default, round-trips, and invalid codes are ignored", () => {
+  expect(serializeInputs({ ...defaults, currency: "NPR" })).not.toContain("currency");
+  expect(serializeInputs({ ...defaults, currency: "USD" })).toContain("currency=USD");
+  expect(parseInputs("?currency=EUR", defaults).currency).toBe("EUR");
+  expect(parseInputs("?currency=none", defaults).currency).toBe("none");
+  expect(parseInputs("?currency=XYZ", { ...defaults, currency: "NPR" }).currency).toBe("NPR");
+});
