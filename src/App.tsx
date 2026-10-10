@@ -6,6 +6,7 @@ import { formatDate, formatMoney, formatNumber, loadLang, saveLang } from "./i18
 import type { Key, Lang } from "./i18n";
 import { translate } from "./i18n";
 import { parseInputs, serializeInputs } from "./shareUrl";
+import { clearInputs, loadInputs, saveInputs } from "./savedInputs";
 
 function useCountUp(target: number, ms = 800) {
   const reduced = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -213,7 +214,7 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   const { t, money, num, date, err } = useI18n();
   const signed = (n: number) => (n > 0.005 ? "+" : n < -0.005 ? "−" : "") + money(Math.abs(n));
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
-  const [initial] = useState(() => parseInputs(window.location.search, DEFAULTS));
+  const [initial] = useState(() => parseInputs(window.location.search, loadInputs(window.localStorage, DEFAULTS)));
   const [principal, setPrincipal] = useState(initial.principal);
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
@@ -231,6 +232,18 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   useEffect(() => {
     window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "" }));
   }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
+
+  useEffect(() => {
+    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "" };
+    if ((Object.keys(DEFAULTS) as (keyof typeof DEFAULTS)[]).every((k) => cur[k] === DEFAULTS[k])) clearInputs(window.localStorage);
+    else saveInputs(window.localStorage, cur);
+  }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
+
+  const clearSaved = () => {
+    clearInputs(window.localStorage);
+    setPrincipal(DEFAULTS.principal); setRate(DEFAULTS.rate); setMonths(DEFAULTS.months);
+    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setBiweekly(false);
+  };
 
   const { result, rows, baseRows, savings, error } = useMemo(() => {
     try {
@@ -326,6 +339,7 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
         </details>
       </div>
       {error && <p id="calc-error" className="error" role="alert">{err(error)}</p>}
+      <button type="button" onClick={clearSaved}>{t("clearSaved")}</button>
       </div>
       <aside className="results">
       {result && (
