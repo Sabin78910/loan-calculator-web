@@ -381,3 +381,19 @@ test("restores saved inputs, URL overrides them, and clear resets", async () => 
   expect(screen.getByLabelText("Loan amount (NPR)")).toHaveValue("500000");
   expect(window.localStorage.getItem("loan-calculator:inputs")).toBeNull();
 });
+
+test("upfront fee shows APR above the nominal rate and validates", async () => {
+  render(<App />);
+  expect(screen.queryByText(/^APR:/)).not.toBeInTheDocument();
+  const fee = screen.getByLabelText("Upfront fee");
+  await userEvent.type(fee, "2");
+  const line = screen.getByText(/^APR: .*% \(nominal rate 12%\)/);
+  expect(line).toBeInTheDocument();
+  expect(Number(/APR: ([\d.]+)%/.exec(line.textContent!)![1])).toBeGreaterThan(12);
+  expect(screen.getByText(/true yearly cost/)).toBeInTheDocument();
+  await userEvent.selectOptions(screen.getByLabelText("Upfront fee type"), "amount");
+  await userEvent.clear(fee);
+  await userEvent.type(fee, "-5");
+  expect(screen.getByRole("alert")).toHaveTextContent("Fee cannot be negative");
+  expect(screen.queryByText(/^APR:/)).not.toBeInTheDocument();
+});
