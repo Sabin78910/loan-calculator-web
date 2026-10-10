@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import App from "./App";
 import { breakdown, calculateEmi, maxLoan, extraSavings, money, schedule } from "./emi";
 
-beforeEach(() => window.history.replaceState(null, "", "/"));
+beforeEach(() => { window.history.replaceState(null, "", "/"); window.localStorage.clear(); });
 
 test("shows EMI and validation error", async () => {
   render(<App />);
@@ -359,4 +359,25 @@ test("bi-weekly toggle is keyboard accessible, shows savings badge and updates t
   expect(screen.getByText(/You save/)).toBeInTheDocument();
   expect(window.location.search).toContain("biweekly=1");
   expect(screen.getByText(/lender must apply/i)).toBeInTheDocument();
+});
+
+test("restores saved inputs, URL overrides them, and clear resets", async () => {
+  window.localStorage.clear();
+  window.localStorage.setItem("loan-calculator:inputs", JSON.stringify({ v: 1, inputs: { principal: "250000", rate: "8", months: "36", extra: "", lump: "", lumpMonth: "1", biweekly: "" } }));
+  const first = render(<App />);
+  expect(screen.getByLabelText("Loan amount (NPR)")).toHaveValue("250000");
+  expect(screen.getByLabelText("Tenure (months)")).toHaveValue("36");
+  first.unmount();
+
+  window.history.replaceState(null, "", "/?rate=5");
+  const second = render(<App />);
+  expect(screen.getByLabelText("Loan amount (NPR)")).toHaveValue("250000");
+  expect(screen.getByLabelText("Interest rate (% per year)")).toHaveValue("5");
+  second.unmount();
+
+  window.history.replaceState(null, "", "/");
+  render(<App />);
+  await userEvent.click(screen.getByRole("button", { name: "Clear saved data" }));
+  expect(screen.getByLabelText("Loan amount (NPR)")).toHaveValue("500000");
+  expect(window.localStorage.getItem("loan-calculator:inputs")).toBeNull();
 });
