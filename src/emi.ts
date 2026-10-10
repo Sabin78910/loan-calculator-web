@@ -158,3 +158,20 @@ export function rateSensitivity(principal: number, annualRate: number, months: n
     return { delta, rate, emi: r.emi, totalInterest: r.totalInterest, emiDiff: r.emi - base.emi, interestDiff: r.totalInterest - base.totalInterest };
   });
 }
+
+/** Annualised rate (%) that equates net proceeds (principal - fee) to the EMI stream, via bisection on the monthly IRR. */
+export function apr(principal: number, fee: number, annualRate: number, months: number): number {
+  const { emi } = calculateEmi(principal, annualRate, months);
+  if (!(fee >= 0)) throw new Error("Fee cannot be negative");
+  if (fee >= principal) throw new Error("Fee must be less than the loan amount");
+  if (fee === 0) return annualRate;
+  const net = principal - fee;
+  const pv = (r: number) => (r === 0 ? emi * months : (emi * (1 - (1 + r) ** -months)) / r);
+  let lo = annualRate / 1200, hi = Math.max(lo, 1);
+  while (pv(hi) > net && hi < 1e6) hi *= 2;
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (pv(mid) > net) lo = mid; else hi = mid;
+  }
+  return ((lo + hi) / 2) * 1200;
+}

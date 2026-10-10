@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { balanceChartData, breakdown, biweeklyExtras, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
+import { apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { createContext, useContext } from "react";
 import { formatDate, formatMoney, formatNumber, loadLang, saveLang } from "./i18n";
@@ -227,6 +227,8 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
   const [tax, setTax] = useState("");
   const [insurance, setInsurance] = useState("");
   const [fee, setFee] = useState("");
+  const [upfront, setUpfront] = useState("");
+  const [upfrontType, setUpfrontType] = useState<"percent" | "amount">("percent");
   const [view, setView] = useState<"monthly" | "yearly">("monthly");
 
   useEffect(() => {
@@ -256,6 +258,16 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
       return { result: null, rows: [], baseRows: [], savings: null, error: (e as Error).message };
     }
   }, [principal, rate, months, extra, lump, lumpMonth, biweekly]);
+
+  const aprResult = useMemo(() => {
+    if (!result || upfront === "") return null;
+    try {
+      const p = Number(principal), u = Number(upfront);
+      return { value: apr(p, upfrontType === "percent" ? (p * u) / 100 : u, Number(rate), Number(months)), error: null };
+    } catch (e) {
+      return { value: null, error: (e as Error).message };
+    }
+  }, [result, principal, rate, months, upfront, upfrontType]);
 
   const cost = useMemo(() => {
     if (!result) return null;
@@ -335,9 +347,12 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
           <p className="muted">{t("biweeklyNote")}</p>
           <label>{t("yearlyTax")}<input inputMode="decimal" value={tax} onChange={(e) => setTax(e.target.value)} /></label>
           <label>{t("yearlyInsurance")}<input inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} /></label>
+          <label>{t("upfrontFee")}<input inputMode="decimal" value={upfront} onChange={(e) => setUpfront(e.target.value)} /></label>
+          <label>{t("feeType")}<select value={upfrontType} onChange={(e) => setUpfrontType(e.target.value as "percent" | "amount")}><option value="percent">{t("feePercent")}</option><option value="amount">{t("feeAmount")}</option></select></label>
           <label>{t("monthlyFees")}<input inputMode="decimal" value={fee} onChange={(e) => setFee(e.target.value)} /></label>
         </details>
       </div>
+      {aprResult?.error && <p className="error" role="alert">{err(aprResult.error)}</p>}
       {error && <p id="calc-error" className="error" role="alert">{err(error)}</p>}
       <button type="button" onClick={clearSaved}>{t("clearSaved")}</button>
       </div>
@@ -348,6 +363,12 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
             <h2 className="big">{t("monthlyEmi", { amount: money(result.emi) })}</h2>
             <p>{t("totalInterestLine", { amount: money(result.totalInterest) })}</p>
             <p>{t("totalPaymentLine", { amount: money(result.totalPayment) })}</p>
+            {aprResult?.value != null && (
+              <>
+                <p>{t("aprLine", { apr: num(aprResult.value, 2, false), rate: num(Number(rate), 2, false) })}</p>
+                <p className="muted">{t("aprExplain")}</p>
+              </>
+            )}
             <p>{t("payoffDate", { date: date(payoffDate(new Date(), rows.length)) })}</p>
             {savings && savings.monthsSaved > 0 && (
               <SavingsBadge interestSaved={savings.interestSaved} monthsSaved={savings.monthsSaved} />

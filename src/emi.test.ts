@@ -1,4 +1,4 @@
-import { balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras } from "./emi";
+import { apr, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -228,4 +228,32 @@ test("biweeklyExtras: adds EMI/12 monthly, saving interest and months", () => {
 });
 test("biweeklyExtras: keeps existing extras and stacks monthly", () => {
   expect(biweeklyExtras(1200, { monthly: 50, lumpSum: 1000, lumpMonth: 3 })).toEqual({ monthly: 150, lumpSum: 1000, lumpMonth: 3 });
+});
+
+describe("apr", () => {
+  it("equals the nominal rate when fee is 0", () => {
+    expect(apr(100000, 0, 12, 60)).toBe(12);
+  });
+  it("is higher than the nominal rate with a fee and solves the IRR", () => {
+    const a = apr(100000, 2000, 12, 12);
+    expect(a).toBeGreaterThan(12);
+    expect(a).toBeCloseTo(15.7, 0);
+    const emi = calculateEmi(100000, 12, 12).emi, r = a / 1200;
+    const pv = (emi * (1 - (1 + r) ** -12)) / r;
+    expect(pv).toBeCloseTo(98000, 2);
+  });
+  it("handles a 0% rate with a fee", () => {
+    const a = apr(12000, 600, 0, 12);
+    expect(a).toBeGreaterThan(0);
+    const r = a / 1200;
+    expect((1000 * (1 - (1 + r) ** -12)) / r).toBeCloseTo(11400, 2);
+  });
+  it("validates input", () => {
+    expect(() => apr(0, 0, 10, 12)).toThrow("Principal must be positive");
+    expect(() => apr(1000, -1, 10, 12)).toThrow("Fee cannot be negative");
+    expect(() => apr(1000, 1000, 10, 12)).toThrow("Fee must be less than the loan amount");
+    expect(() => apr(1000, NaN, 10, 12)).toThrow("Fee cannot be negative");
+    expect(() => apr(1000, 10, -1, 12)).toThrow("Rate cannot be negative");
+    expect(() => apr(1000, 10, 10, 0)).toThrow("Tenure");
+  });
 });
