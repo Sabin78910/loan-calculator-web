@@ -53,15 +53,33 @@ export function biweeklyExtras(emi: number, extras: Extras = {}): Extras {
   return { ...extras, monthly: (extras.monthly ?? 0) + emi / 12 };
 }
 
-export function schedule(principal: number, annualRate: number, months: number, extras: Extras = {}): Row[] {
-  const { emi } = calculateEmi(principal, annualRate, months);
+export interface RateChange { fromMonth: number; annualRate: number; }
+
+/** Valid changes only (integer month 2..months, finite rate >= 0), sorted; the last entry wins for a repeated month. */
+export function normalizeRateChanges(changes: RateChange[], months: number): RateChange[] {
+  const byMonth = new Map<number, RateChange>();
+  for (const c of changes) {
+    if (Number.isInteger(c.fromMonth) && c.fromMonth >= 2 && c.fromMonth <= months && Number.isFinite(c.annualRate) && c.annualRate >= 0) byMonth.set(c.fromMonth, c);
+  }
+  return [...byMonth.values()].sort((a, b) => a.fromMonth - b.fromMonth);
+}
+
+/** Schedule where the EMI is recomputed on the remaining balance and term at each rate change (tenure stays fixed). */
+export function schedule(principal: number, annualRate: number, months: number, extras: Extras = {}, rateChanges: RateChange[] = []): Row[] {
+  let { emi } = calculateEmi(principal, annualRate, months);
   const { monthly = 0, lumpSum = 0, lumpMonth = 1 } = extras;
   if (!(monthly >= 0) || !(lumpSum >= 0)) throw new Error("Extra payments cannot be negative");
   if (lumpSum > 0 && (!Number.isInteger(lumpMonth) || lumpMonth < 1)) throw new Error("Extra lump sum month must be at least 1");
-  const r = annualRate / 12 / 100;
+  const changes = new Map(normalizeRateChanges(rateChanges, months).map((c) => [c.fromMonth, c.annualRate]));
+  let r = annualRate / 12 / 100;
   let balance = principal;
   const rows: Row[] = [];
   for (let month = 1; month <= months && balance > 0.005; month++) {
+    const newRate = changes.get(month);
+    if (newRate !== undefined) {
+      r = newRate / 12 / 100;
+      emi = calculateEmi(balance, newRate, months - month + 1).emi;
+    }
     const interest = balance * r;
     const wanted = month === lumpMonth ? monthly + lumpSum : monthly;
     const extra = Math.min(wanted, Math.max(0, balance - (emi - interest)));
@@ -73,10 +91,10 @@ export function schedule(principal: number, annualRate: number, months: number, 
   return rows;
 }
 
-export function extraSavings(principal: number, annualRate: number, months: number, extras: Extras = {}): { interestSaved: number; monthsSaved: number } {
+export function extraSavings(principal: number, annualRate: number, months: number, extras: Extras = {}, rateChanges: RateChange[] = []): { interestSaved: number; monthsSaved: number } {
   const sum = (rows: Row[]) => rows.reduce((s, r) => s + r.interest, 0);
-  const withExtras = schedule(principal, annualRate, months, extras);
-  const base = schedule(principal, annualRate, months);
+  const withExtras = schedule(principal, annualRate, months, extras, rateChanges);
+  const base = schedule(principal, annualRate, months, {}, rateChanges);
   return { interestSaved: Math.max(0, sum(base) - sum(withExtras)), monthsSaved: base.length - withExtras.length };
 }
 

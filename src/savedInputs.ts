@@ -1,3 +1,4 @@
+import { decodeChanges, encodeChanges } from "./shareUrl";
 import type { Inputs } from "./shareUrl";
 
 export const STORAGE_KEY = "loan-calculator:inputs";
@@ -14,6 +15,10 @@ export function loadInputs(store: Store, defaults: Inputs): Inputs {
     for (const k of FIELDS) {
       const v = data.inputs[k];
       if (typeof v === "string" && (v.trim() === "" ? k !== "principal" && k !== "rate" && k !== "months" : Number.isFinite(Number(v)))) out[k] = v.trim();
+    }
+    if (typeof data.inputs.changes === "string") {
+      const changes = encodeChanges(decodeChanges(data.inputs.changes));
+      if (changes) out.changes = changes;
     }
     return out;
   } catch {

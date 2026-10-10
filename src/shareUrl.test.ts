@@ -27,3 +27,12 @@ test("bi-weekly flag is in the link only when on and round-trips", () => {
   expect(serializeInputs(v)).toContain("biweekly=1");
   expect(parseInputs(serializeInputs(v), defaults).biweekly).toBe("1");
 });
+
+test("rate changes are in the link only when set, round-trip, and bad entries are dropped", () => {
+  expect(serializeInputs(defaults)).not.toContain("changes");
+  const v = { ...defaults, changes: "24:9.5,36:10" };
+  expect(serializeInputs(v)).toContain("changes=24%3A9.5%2C36%3A10");
+  expect(parseInputs(serializeInputs(v), defaults).changes).toBe("24:9.5,36:10");
+  expect(parseInputs("?changes=24:abc,x:5,30:8", defaults).changes).toBe("30:8");
+  expect(parseInputs("?changes=1:1,2:2,3:3,4:4,5:5,6:6", defaults).changes).toBe("1:1,2:2,3:3,4:4,5:5");
+});

@@ -1,4 +1,4 @@
-import { apr, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras } from "./emi";
+import { apr, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -255,5 +255,41 @@ describe("apr", () => {
     expect(() => apr(1000, NaN, 10, 12)).toThrow("Fee cannot be negative");
     expect(() => apr(1000, 10, -1, 12)).toThrow("Rate cannot be negative");
     expect(() => apr(1000, 10, 10, 0)).toThrow("Tenure");
+  });
+});
+
+describe("rate changes", () => {
+  it("no changes equals current output", () => {
+    expect(schedule(500000, 12, 60, {}, [])).toEqual(schedule(500000, 12, 60));
+  });
+  it("matches a hand-computed schedule for a single change", () => {
+    const rows = schedule(1200, 12, 3, {}, [{ fromMonth: 2, annualRate: 24 }]);
+    // month 1: EMI 1200 @1%/mo over 3 = 408.0265..; interest 12
+    const emi1 = calculateEmi(1200, 12, 3).emi;
+    const bal1 = 1200 - (emi1 - 12);
+    expect(rows[0].interest).toBeCloseTo(12, 6);
+    expect(rows[0].balance).toBeCloseTo(bal1, 6);
+    // month 2: EMI recomputed on bal1 over 2 months @2%/mo
+    const emi2 = (bal1 * 0.02 * 1.02 ** 2) / (1.02 ** 2 - 1);
+    expect(rows[1].interest).toBeCloseTo(bal1 * 0.02, 6);
+    expect(rows[1].principal).toBeCloseTo(emi2 - bal1 * 0.02, 6);
+    expect(rows).toHaveLength(3);
+    expect(rows[2].balance).toBe(0);
+  });
+  it("a higher rate raises total interest, a lower one cuts it", () => {
+    const sum = (rs: { interest: number }[]) => rs.reduce((s, r) => s + r.interest, 0);
+    const base = sum(schedule(500000, 12, 60));
+    expect(sum(schedule(500000, 12, 60, {}, [{ fromMonth: 24, annualRate: 15 }]))).toBeGreaterThan(base);
+    expect(sum(schedule(500000, 12, 60, {}, [{ fromMonth: 24, annualRate: 8 }]))).toBeLessThan(base);
+  });
+  it("ignores invalid or out-of-range changes", () => {
+    const bad = [{ fromMonth: 1, annualRate: 20 }, { fromMonth: 61, annualRate: 20 }, { fromMonth: 2.5, annualRate: 20 }, { fromMonth: 10, annualRate: -1 }, { fromMonth: 10, annualRate: NaN }];
+    expect(schedule(500000, 12, 60, {}, bad)).toEqual(schedule(500000, 12, 60));
+    expect(normalizeRateChanges([{ fromMonth: 30, annualRate: 9 }, { fromMonth: 12, annualRate: 8 }, { fromMonth: 30, annualRate: 7 }], 60)).toEqual([{ fromMonth: 12, annualRate: 8 }, { fromMonth: 30, annualRate: 7 }]);
+  });
+  it("still pays off with extras and multiple changes", () => {
+    const rows = schedule(500000, 12, 60, { monthly: 2000 }, [{ fromMonth: 12, annualRate: 10 }, { fromMonth: 24, annualRate: 14 }]);
+    expect(rows[rows.length - 1].balance).toBe(0);
+    expect(extraSavings(500000, 12, 60, { monthly: 2000 }, [{ fromMonth: 12, annualRate: 10 }]).monthsSaved).toBeGreaterThan(0);
   });
 });
