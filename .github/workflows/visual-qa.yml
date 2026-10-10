@@ -75,10 +75,12 @@ jobs:
             Look at every screenshot. If there are concrete visual defects or clear gaps against the brief
             (clipped or overlapping text, poor contrast, unstyled controls, misalignment, large empty areas,
             inconsistent spacing, missing dark-mode styling), open ONE issue:
-            gh issue create --label ready --label design-review --title "Design review fixes" --body "<Goal, then up to 6 specific checkbox fixes>"
+            Save each body with the Write tool to .issue-body.md, then run the single-line command (multi-line Bash commands are blocked):
+            gh issue create --label ready --label design-review --title "Design review fixes" --body-file .issue-body.md
+            (body: the goal, then up to 6 specific checkbox fixes)
             Do nothing if an open issue labelled design-review already exists or the design is polished.
             Do not change any code.
-          claude_args: --max-turns 25 --allowedTools "Read,Glob,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(ls:*)"
+          claude_args: --max-turns 25 --allowedTools "Read,Write,Glob,Bash(gh issue list:*),Bash(gh issue view:*),Bash(gh issue create:*),Bash(ls:*)"
       - name: Start the agent if work was queued
         if: always() && (github.event_name == 'schedule' || inputs.review)
         run: |
