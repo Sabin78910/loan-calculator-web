@@ -48,12 +48,12 @@ test("loads inputs from URL and syncs changes back", async () => {
 
 test("toggles between monthly and yearly schedule", async () => {
   render(<App />);
-  expect(screen.getAllByRole("row")).toHaveLength(61);
+  expect(within(screen.getByRole("table", { name: /schedule/i })).getAllByRole("row")).toHaveLength(61);
   await userEvent.click(screen.getByRole("button", { name: "Yearly" }));
   expect(screen.getByRole("columnheader", { name: "Year" })).toBeInTheDocument();
-  expect(screen.getAllByRole("row")).toHaveLength(6);
+  expect(within(screen.getByRole("table", { name: /schedule/i })).getAllByRole("row")).toHaveLength(6);
   await userEvent.click(screen.getByRole("button", { name: "Monthly" }));
-  expect(screen.getAllByRole("row")).toHaveLength(61);
+  expect(within(screen.getByRole("table", { name: /schedule/i })).getAllByRole("row")).toHaveLength(61);
 });
 
 test("summary is a polite live region", () => {
@@ -96,7 +96,7 @@ test("extra payments show savings and appear in the share link", async () => {
   const s = extraSavings(500000, 12, 60, { monthly: 5000 });
   expect(screen.getByText(/You save/)).toHaveTextContent(`You save NPR ${money(s.interestSaved)} and finish ${60 - n} months early`);
   expect(window.location.search).toContain("extra=5000");
-  expect(screen.getAllByRole("row")).toHaveLength(n + 1);
+  expect(within(screen.getByRole("table", { name: /schedule/i })).getAllByRole("row")).toHaveLength(n + 1);
 });
 
 test("lump sum month is validated", async () => {
@@ -335,4 +335,15 @@ describe("language switch", () => {
     await userEvent.type(months, "0");
     expect(screen.getByRole("alert")).toHaveTextContent("अवधि कम्तीमा १ महिना हुनुपर्छ");
   });
+});
+
+test("rate what-if table shows EMI and interest at rate offsets and updates", async () => {
+  localStorage.clear();
+  render(<App />);
+  const table = screen.getByRole("table", { name: "What if the rate changes?" });
+  expect(within(table).getAllByRole("columnheader").length).toBeGreaterThanOrEqual(4);
+  expect(within(table).getAllByRole("row")).toHaveLength(6);
+  expect(within(table).getByText(money(calculateEmi(500000, 13, 60).emi))).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Interest rate (% per year)", { selector: "input:not([type=range])" }), { target: { value: "8" } });
+  expect(within(table).getByText(money(calculateEmi(500000, 9, 60).emi))).toBeInTheDocument();
 });

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { balanceChartData, breakdown, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, schedule, toCsv } from "./emi";
+import { balanceChartData, breakdown, calculateEmi, compareLoans, donutArcs, extraSavings, groupByYear, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { ChartPoint } from "./emi";
 import { createContext, useContext } from "react";
 import { formatDate, formatMoney, formatNumber, loadLang, saveLang } from "./i18n";
@@ -211,6 +211,7 @@ export default function App() {
 
 function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) => void }) {
   const { t, money, num, date, err } = useI18n();
+  const signed = (n: number) => (n > 0.005 ? "+" : n < -0.005 ? "−" : "") + money(Math.abs(n));
   useEffect(() => { document.documentElement.lang = lang; }, [lang]);
   const [initial] = useState(() => parseInputs(window.location.search, DEFAULTS));
   const [principal, setPrincipal] = useState(initial.principal);
@@ -360,6 +361,21 @@ function Calculator({ lang, chooseLang }: { lang: Lang; chooseLang: (l: Lang) =>
                 </li>
               ))}
             </ol>
+          </section>
+          <section className="card no-print" aria-label={t("whatIfRate")}>
+            <table>
+              <caption>{t("whatIfRate")}</caption>
+              <thead><tr><th scope="col">{t("colRateChange")}</th><th scope="col">{t("colRate")}</th><th scope="col">{t("colEmi")}</th><th scope="col">{t("colTotalInterest")}</th><th scope="col">{t("colEmiDiff")}</th><th scope="col">{t("colInterestDiff")}</th></tr></thead>
+              <tbody>
+                {rateSensitivity(Number(principal), Number(rate), Number(months), [-1, -0.5, 0, 0.5, 1]).map((s) => (
+                  <tr key={s.delta}>
+                    <th scope="row">{s.delta === 0 ? t("currentRate") : `${s.delta > 0 ? "+" : "−"}${num(Math.abs(s.delta), 1)}%`}</th>
+                    <td>{num(s.rate, 2, false)}%</td><td>{money(s.emi)}</td><td>{money(s.totalInterest)}</td>
+                    <td>{signed(s.emiDiff)}</td><td>{signed(s.interestDiff)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
           <BalanceChart points={balanceChartData(rows, Number(principal))} />
           <div className="row no-print">
