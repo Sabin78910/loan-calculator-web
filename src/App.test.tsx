@@ -347,3 +347,16 @@ test("rate what-if table shows EMI and interest at rate offsets and updates", as
   fireEvent.change(screen.getByLabelText("Interest rate (% per year)", { selector: "input:not([type=range])" }), { target: { value: "8" } });
   expect(within(table).getByText(money(calculateEmi(500000, 9, 60).emi))).toBeInTheDocument();
 });
+
+test("bi-weekly toggle is keyboard accessible, shows savings badge and updates the share link", async () => {
+  render(<App />);
+  const box = screen.getByRole("checkbox", { name: /Pay bi-weekly/ });
+  expect(box).not.toBeChecked();
+  expect(screen.queryByText(/You save/)).not.toBeInTheDocument();
+  box.focus();
+  await userEvent.keyboard(" ");
+  expect(box).toBeChecked();
+  expect(screen.getByText(/You save/)).toBeInTheDocument();
+  expect(window.location.search).toContain("biweekly=1");
+  expect(screen.getByText(/lender must apply/i)).toBeInTheDocument();
+});

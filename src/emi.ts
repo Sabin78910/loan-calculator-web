@@ -48,6 +48,11 @@ export function balanceChartData(rows: Row[], principal: number): ChartPoint[] {
 
 export interface Extras { monthly?: number; lumpSum?: number; lumpMonth?: number; }
 
+/** Bi-weekly payment modelled as one extra EMI per year: an added EMI/12 each month. */
+export function biweeklyExtras(emi: number, extras: Extras = {}): Extras {
+  return { ...extras, monthly: (extras.monthly ?? 0) + emi / 12 };
+}
+
 export function schedule(principal: number, annualRate: number, months: number, extras: Extras = {}): Row[] {
   const { emi } = calculateEmi(principal, annualRate, months);
   const { monthly = 0, lumpSum = 0, lumpMonth = 1 } = extras;

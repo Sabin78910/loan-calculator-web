@@ -1,14 +1,15 @@
-export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string };
+export type Inputs = { principal: string; rate: string; months: string; extra: string; lump: string; lumpMonth: string; biweekly?: string };
 
 const KEYS = ["principal", "rate", "months"] as const;
-const OPTIONAL_KEYS = ["extra", "lump", "lumpMonth"] as const;
+const OPTIONAL_KEYS = ["extra", "lump", "lumpMonth", "biweekly"] as const;
 
 export function serializeInputs(inputs: Inputs): string {
   const params = new URLSearchParams();
   for (const k of KEYS) params.set(k, inputs[k]);
   for (const k of OPTIONAL_KEYS) {
-    const unused = k === "lumpMonth" ? Number(inputs.lump) === 0 : Number(inputs[k]) === 0;
-    if (inputs[k].trim() !== "" && !unused) params.set(k, inputs[k]);
+    const value = inputs[k] ?? "";
+    const unused = k === "lumpMonth" ? Number(inputs.lump) === 0 : Number(value) === 0;
+    if (value.trim() !== "" && !unused) params.set(k, value);
   }
   return `?${params.toString()}`;
 }
