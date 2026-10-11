@@ -1,6 +1,6 @@
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeRateChanges, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
+import { normalizeRateChanges, refinance, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { LumpMode } from "./emi";
 import { CURRENCIES, isCurrency, loadLang, saveLang } from "./i18n";
 import type { Currency, Lang } from "./i18n";
@@ -75,6 +75,9 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [principal, setPrincipal] = useState(initial.principal);
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
+  const [refiPaid, setRefiPaid] = useState("0");
+  const [refiRate, setRefiRate] = useState("");
+  const [refiFee, setRefiFee] = useState("");
   const [income, setIncome] = useState("");
   const [existingEmis, setExistingEmis] = useState("");
   const [unit, setUnit] = useState<TenureUnit>("months");
@@ -191,6 +194,15 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
       return { loan: null, error: (e as Error).message };
     }
   }, [payment, rate, months]);
+
+  const refi = useMemo(() => {
+    if (refiRate === "") return { value: null, error: null };
+    try {
+      return { value: refinance(Number(principal), Number(rate), Number(months), Number(refiPaid || 0), Number(refiRate), Number(refiFee || 0)), error: null };
+    } catch (e) {
+      return { value: null, error: (e as Error).message };
+    }
+  }, [principal, rate, months, refiPaid, refiRate, refiFee]);
 
   const incomeCheck = useMemo(() => {
     if (income === "") return { emi: null, loan: null, error: null };
@@ -511,6 +523,22 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                   </ul>
                 </section>
               )}
+              <section className="card no-print refi-card" aria-labelledby="refi-title">
+                <h2 className="card-title" id="refi-title">{t("refiTitle")}</h2>
+                <p className="lead">{t("refiIntro")}</p>
+                <label className="stack">{t("refiMonthsPaid")}<input className="field-input" inputMode="numeric" value={refiPaid} onChange={(e) => setRefiPaid(e.target.value)} /></label>
+                <label className="stack">{t("refiNewRate")}<input className="field-input" inputMode="decimal" value={refiRate} onChange={(e) => setRefiRate(e.target.value)} /></label>
+                <label className="stack">{t("refiFee")}<input className="field-input" inputMode="decimal" value={refiFee} onChange={(e) => setRefiFee(e.target.value)} /></label>
+                {refi.error && <p className="error" role="alert">{err(refi.error)}</p>}
+                {refi.value && (
+                  <div aria-label={t("refiResult")} role="group" aria-live="polite">
+                    <p>{t("refiNewEmi", { amount: money(refi.value.newEmi), current: money(refi.value.currentEmi) })}</p>
+                    {refi.value.worthIt ? <p>{t("refiSaved", { amount: money(refi.value.netSaving) })}</p> : <p>{t("refiCostsMore", { amount: money(-refi.value.netSaving) })}</p>}
+                    {refi.value.breakEvenMonth !== null && refi.value.breakEvenMonth <= refi.value.remainingMonths && <p>{t("refiBreakEven", { month: num(refi.value.breakEvenMonth) })}</p>}
+                    {refi.value.worthIt && <p>{t("refiWorth")}</p>}
+                  </div>
+                )}
+              </section>
               <section className="card no-print table-card" aria-label={t("whatIfRate")}>
                 <table>
                   <caption>{t("whatIfRate")}</caption>

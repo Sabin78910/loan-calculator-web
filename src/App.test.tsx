@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
-import { breakdown, calculateEmi, maxLoan, extraSavings, lumpOutcome, money, schedule } from "./emi";
+import { breakdown, calculateEmi, refinance, maxLoan, extraSavings, lumpOutcome, money, schedule } from "./emi";
 
 beforeEach(() => { window.history.replaceState(null, "", "/"); window.localStorage.clear(); });
 
@@ -635,4 +635,36 @@ test("affordability income check shows zero when existing EMIs exceed the cap", 
   await userEvent.type(screen.getByLabelText("Monthly income (NPR)"), "100000");
   await userEvent.type(screen.getByLabelText("Existing EMIs (NPR)"), "60000");
   expect(screen.getByLabelText("Income check result")).toHaveTextContent(`Max EMI at 50% of income: NPR ${money(0)}`);
+});
+
+describe("refinance card", () => {
+  const setup = async () => {
+    render(<App />);
+    await userEvent.clear(screen.getByLabelText("Loan amount (NPR)"));
+    await userEvent.type(screen.getByLabelText("Loan amount (NPR)"), "1000000");
+    await userEvent.clear(screen.getByLabelText("Interest rate (% per year)"));
+    await userEvent.type(screen.getByLabelText("Interest rate (% per year)"), "12");
+    await userEvent.clear(screen.getByLabelText("Tenure (months)"));
+    await userEvent.type(screen.getByLabelText("Tenure (months)"), "120");
+  };
+
+  test("shows new EMI, net saving and break-even month", async () => {
+    await setup();
+    await userEvent.clear(screen.getByLabelText("Months already paid"));
+    await userEvent.type(screen.getByLabelText("Months already paid"), "24");
+    await userEvent.type(screen.getByLabelText("New rate (% per year)"), "9");
+    await userEvent.type(screen.getByLabelText("Switching fee (NPR)"), "10000");
+    const exp = refinance(1000000, 12, 120, 24, 9, 10000);
+    const r = screen.getByLabelText("Refinance result");
+    expect(r).toHaveTextContent(`New EMI: NPR ${money(exp.newEmi)} (now NPR ${money(exp.currentEmi)})`);
+    expect(r).toHaveTextContent(`Interest saved after fee: NPR ${money(exp.netSaving)}`);
+    expect(r).toHaveTextContent(`Break-even: month ${exp.breakEvenMonth}`);
+  });
+
+  test("says clearly when switching costs more", async () => {
+    await setup();
+    await userEvent.type(screen.getByLabelText("New rate (% per year)"), "11.9");
+    await userEvent.type(screen.getByLabelText("Switching fee (NPR)"), "200000");
+    expect(screen.getByLabelText("Refinance result")).toHaveTextContent("not worth it");
+  });
 });

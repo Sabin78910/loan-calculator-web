@@ -247,3 +247,21 @@ export function apr(principal: number, fee: number, annualRate: number, months: 
   }
   return ((lo + hi) / 2) * 1200;
 }
+
+export interface RefinanceResult { balance: number; remainingMonths: number; currentEmi: number; newEmi: number; netSaving: number; breakEvenMonth: number | null; worthIt: boolean; }
+
+/** Moves the balance left after `monthsPaid` to `newRate` over the remaining term, paying `fee` up front. Break-even is the month when cumulative EMI savings cover the fee (null if the EMI does not fall). */
+export function refinance(principal: number, annualRate: number, months: number, monthsPaid: number, newRate: number, fee: number): RefinanceResult {
+  calculateEmi(principal, annualRate, months);
+  if (!Number.isInteger(monthsPaid) || monthsPaid < 0 || monthsPaid >= months) throw new Error("Months paid must be a whole number below the tenure");
+  if (!(newRate >= 0)) throw new Error("Rate cannot be negative");
+  if (!(fee >= 0)) throw new Error("Fee cannot be negative");
+  const balance = monthsPaid === 0 ? principal : schedule(principal, annualRate, months)[monthsPaid - 1].balance;
+  const remainingMonths = months - monthsPaid;
+  const current = calculateEmi(balance, annualRate, remainingMonths);
+  const next = calculateEmi(balance, newRate, remainingMonths);
+  const monthlySaving = current.emi - next.emi;
+  const netSaving = current.totalInterest - next.totalInterest - fee;
+  const breakEvenMonth = fee === 0 ? (monthlySaving > 0 ? 1 : null) : monthlySaving > 0 ? Math.ceil(fee / monthlySaving) : null;
+  return { balance, remainingMonths, currentEmi: current.emi, newEmi: next.emi, netSaving, breakEvenMonth, worthIt: netSaving > 0 };
+}
