@@ -1,4 +1,4 @@
-const CACHE = "loan-calc-v1";
+const CACHE = "loan-calc-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -17,6 +17,19 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET" || new URL(request.url).origin !== self.location.origin) return;
+  // Pages: network first so new releases show up, cached copy when offline.
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          const copy = res.clone();
+          if (res.ok) caches.open(CACHE).then((c) => c.put(request, copy));
+          return res;
+        })
+        .catch(() => caches.match(request).then((hit) => hit || caches.match("./"))),
+    );
+    return;
+  }
   event.respondWith(
     caches.match(request).then(
       (hit) =>

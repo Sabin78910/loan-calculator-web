@@ -157,6 +157,15 @@ export function compareLoans(a: LoanTerms, b: LoanTerms): { a: EmiResult; b: Emi
   return { a: ra, b: rb, cheaper: diff < 0 ? "A" : diff > 0 ? "B" : "tie" };
 }
 
+/** Results for any number of loans plus the index of the one with the lowest total cost (null when the lowest is tied). */
+export function compareMany(loans: LoanTerms[]): { results: EmiResult[]; cheapest: number | null } {
+  const results = loans.map((l) => calculateEmi(l.principal, l.rate, l.months));
+  const cents = results.map((r) => Math.round(r.totalPayment * 100));
+  const min = Math.min(...cents);
+  const winners = cents.flatMap((c, i) => (c === min ? [i] : []));
+  return { results, cheapest: winners.length === 1 ? winners[0] : null };
+}
+
 export interface MonthlyCostExtras { yearlyTax?: number; yearlyInsurance?: number; monthlyFee?: number; }
 export interface MonthlyCost { emi: number; tax: number; insurance: number; fee: number; total: number; }
 

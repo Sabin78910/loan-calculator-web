@@ -1,4 +1,4 @@
-import { apr, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
+import { apr, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -369,5 +369,21 @@ describe("interest-only period", () => {
     expect(() => calculateEmi(1000, 10, 12, 1.5)).toThrow(/Interest-only/);
     expect(() => calculateEmi(1000, 10, 60, 25)).toThrow(/Interest-only/);
     expect(() => calculateEmi(1000, 10, 12, 12)).toThrow(/less than the tenure/);
+  });
+});
+
+describe("compareMany", () => {
+  const loan = (rate: number) => ({ principal: 100000, rate, months: 12 });
+  it("finds the cheapest of three loans", () => {
+    const c = compareMany([loan(12), loan(9), loan(10)]);
+    expect(c.results).toHaveLength(3);
+    expect(c.cheapest).toBe(1);
+    expect(c.results[1].totalInterest).toBeLessThan(c.results[2].totalInterest);
+  });
+  it("returns null when the cheapest is tied", () => {
+    expect(compareMany([loan(9), loan(9), loan(12)]).cheapest).toBeNull();
+  });
+  it("throws on invalid input", () => {
+    expect(() => compareMany([loan(9), { principal: 1, rate: 9, months: 0 }])).toThrow("Tenure");
   });
 });
