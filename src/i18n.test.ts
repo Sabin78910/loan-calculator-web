@@ -1,4 +1,4 @@
-import { detectLang, EN, formatDate, formatMoney, loadLang, NE, saveLang, translate } from "./i18n";
+import { detectLang, formatLakh, EN, formatDate, formatMoney, loadLang, NE, saveLang, translate } from "./i18n";
 
 beforeEach(() => localStorage.clear());
 
@@ -45,4 +45,14 @@ test.each([["NPR", /NPR|रु|नेरू/], ["INR", /₹/], ["USD", /\$/], ["
   const ne = formatMoney("ne", 1234.5, code);
   expect(ne).toMatch(re);
   expect(ne).toMatch(/[०-९]/);
+});
+
+test("formatLakh uses lakh and crore in English and Nepali", () => {
+  expect(formatLakh("en", 500000)).toBe("5 lakh");
+  expect(formatLakh("en", 250000)).toBe("2.5 lakh");
+  expect(formatLakh("en", 12500000)).toBe("1.25 crore");
+  expect(formatLakh("en", 25000)).toBe("25 thousand");
+  expect(formatLakh("en", 640)).toBe("640");
+  expect(formatLakh("ne", 500000)).toBe("५ लाख");
+  expect(formatLakh("ne", 20000000)).toBe("२ करोड");
 });
