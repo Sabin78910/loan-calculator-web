@@ -1,9 +1,9 @@
-/** Content-Security-Policy for the built site: same-origin code only, plus Google Fonts. */
+/** Content-Security-Policy for the built site: same-origin code only, plus Google Fonts for Noto Sans Devanagari only (Manrope is self-hosted). */
 export const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' https://fonts.googleapis.com",
-  "font-src https://fonts.gstatic.com",
+  "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data:",
   "connect-src 'self'",
   "manifest-src 'self'",

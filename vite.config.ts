@@ -9,6 +9,7 @@ export default defineConfig({
   plugins: [react(), cspPlugin()],
   test: {
     globals: true,
+    css: { include: [/index\.css/] },
     environment: "jsdom",
     setupFiles: ["./src/setupTests.ts"],
   },
