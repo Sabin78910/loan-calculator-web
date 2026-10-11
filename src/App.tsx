@@ -13,8 +13,11 @@ import { loadTheme, saveTheme, THEME_COLOR, type Theme } from "./theme";
 import { canAnimate, CurrencyContext, fillStyle, Icon, InfoButton, LangContext, SliderField, useCountUp, useI18n } from "./ui";
 import type { IconName } from "./ui";
 import { BalanceChart, Donut } from "./charts";
-import { Compare } from "./Compare";
+import { Compare, MAX_LOANS } from "./Compare";
 import type { LoanInput } from "./Compare";
+import { SyncPanel } from "./SyncPanel";
+import { useSync } from "./useSync";
+import type { SyncDoc } from "./syncData";
 
 const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", interestOnly: "", lumpMode: "", changes: "", currency: "NPR" };
 const TABS = [["emi", "tabCalc", "calc"], ["afford", "tabAfford", "gauge"], ["compare", "tabCompare", "bars"]] as const;
@@ -102,6 +105,8 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [initialCompare] = useState(() => decodeCompare(new URLSearchParams(window.location.search).get("compare")));
   const [tab, setTab] = useState<Tab>(initialCompare.length ? "compare" : "emi");
   const [compareLoans, setCompareLoans] = useState<LoanInput[]>(initialCompare);
+  const [compareSeed, setCompareSeed] = useState<LoanInput[]>(initialCompare);
+  const [compareKey, setCompareKey] = useState(0);
   const [payment, setPayment] = useState("");
   const [tax, setTax] = useState("");
   const [insurance, setInsurance] = useState("");
@@ -139,6 +144,30 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
     setPrincipal(DEFAULTS.principal); setRate(DEFAULTS.rate); setMonths(DEFAULTS.months);
     setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setLumpMode("tenure"); setBiweekly(false); setInterestOnly(DEFAULTS.interestOnly); setChangeList([]); setCurrency("NPR");
   };
+
+  const inputsNow = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes };
+  const syncItems: Record<string, unknown> = { inputs: inputsNow, currency, theme };
+  if (compareLoans.length) for (let i = 0; i < MAX_LOANS; i++) syncItems[`slot-${i}`] = compareLoans[i] ?? null;
+  const applySynced = (doc: SyncDoc) => {
+    const saved = doc.inputs?.v as Partial<Inputs> | undefined;
+    if (saved && typeof saved === "object") {
+      const d = { ...DEFAULTS, ...loadInputs({ getItem: () => JSON.stringify({ v: 1, inputs: saved }), setItem: () => {}, removeItem: () => {} }, DEFAULTS) };
+      setPrincipal(d.principal); setRate(d.rate); setMonths(d.months); setExtra(d.extra); setLump(d.lump); setLumpMonth(d.lumpMonth);
+      setLumpMode(d.lumpMode === "emi" ? "emi" : "tenure"); setBiweekly(d.biweekly === "1"); setInterestOnly(d.interestOnly ?? ""); setChangeList(decodeChanges(d.changes));
+    }
+    const cur = doc.currency?.v;
+    if (isCurrency(cur)) setCurrency(cur);
+    const th = doc.theme?.v;
+    if (th === "dark" || th === "light") { setTheme(th); saveTheme(th); }
+    const slots: LoanInput[] = [];
+    for (let i = 0; i < MAX_LOANS; i++) {
+      const v = doc[`slot-${i}`]?.v as Partial<LoanInput> | null | undefined;
+      if (v && typeof v.principal === "string" && typeof v.rate === "string" && typeof v.months === "string") slots.push({ principal: v.principal, rate: v.rate, months: v.months });
+      else break;
+    }
+    if (slots.length && JSON.stringify(slots) !== JSON.stringify(compareLoans)) { setCompareSeed(slots); setCompareLoans(slots); setCompareKey((k) => k + 1); }
+  };
+  const sync = useSync(syncItems, applySynced);
 
   const share = async () => {
     const url = window.location.href;
@@ -320,7 +349,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
           ))}
         </div>
 
-        {tab === "compare" && <Compare initial={{ principal, rate, months }} initialLoans={initialCompare} onLoansChange={setCompareLoans} />}
+        {tab === "compare" && <Compare key={compareKey} initial={{ principal, rate, months }} initialLoans={compareSeed} onLoansChange={setCompareLoans} />}
 
         {tab === "afford" && (
           <div className="layout">
@@ -461,6 +490,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
               {aprResult?.error && <p className="error" role="alert">{err(aprResult.error)}</p>}
               {error && <p id="calc-error" className="error" role="alert">{err(error)}</p>}
               <button type="button" className="btn btn-ghost" onClick={clearSaved}><Icon name="reset" size={18} />{t("clearSaved")}</button>
+              <SyncPanel {...sync} connectCode={sync.useCode} onCopied={() => setToast(t("syncCopied"))} />
             </div>
 
             <aside className="results">

@@ -5,7 +5,7 @@ export const CSP = [
   "style-src 'self' https://fonts.googleapis.com",
   "font-src 'self' https://fonts.gstatic.com",
   "img-src 'self' data:",
-  "connect-src 'self'",
+  "connect-src 'self' https://sync-api.sabin-apps.workers.dev",
   "manifest-src 'self'",
   "worker-src 'self'",
   "base-uri 'self'",
