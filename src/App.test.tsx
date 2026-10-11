@@ -518,3 +518,98 @@ test("interest-only input changes EMI, validates, and is shared", async () => {
   await userEvent.type(input, "60");
   expect(screen.getByRole("alert")).toHaveTextContent("Interest-only period");
 });
+
+describe("v2 redesign", () => {
+  test("loan presets fill amount, rate and tenure with labelled example rates", async () => {
+    render(<App />);
+    const home = screen.getByRole("button", { name: /Home/ });
+    expect(home).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(home);
+    expect(screen.getByLabelText("Loan amount (NPR)")).toHaveValue("5000000");
+    expect(screen.getByLabelText("Interest rate (% per year)")).toHaveValue("9.5");
+    expect(screen.getByLabelText("Tenure (months)")).toHaveValue("240");
+    expect(home).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/Example rates/)).toBeInTheDocument();
+    expect(screen.getByText("50 lakh")).toBeInTheDocument();
+  });
+
+  test("hero shows a debt-free chip and the EMI", () => {
+    render(<App />);
+    const summary = screen.getByLabelText("Summary");
+    expect(summary).toHaveTextContent(/Debt-free by \w+ \d{4}/);
+    expect(summary).toHaveTextContent(money(calculateEmi(500000, 12, 60).emi));
+  });
+
+  test("what-if sliders add prepayments and show the savings badge", () => {
+    render(<App />);
+    expect(screen.getByText(/No prepayment yet/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("slider", { name: "Extra every month" }), { target: { value: "5000" } });
+    const s = extraSavings(500000, 12, 60, { monthly: 5000 });
+    expect(screen.getByRole("status", { name: /You save/ })).toHaveTextContent(`NPR ${money(s.interestSaved)}`);
+    expect(screen.getByLabelText("Monthly extra payment (NPR)")).toHaveValue("5000");
+    expect(screen.getByLabelText("Summary")).toHaveTextContent(`${s.monthsSaved} months sooner`);
+    expect(window.location.search).toContain("extra=5000");
+    fireEvent.change(screen.getByRole("slider", { name: "One-time prepayment" }), { target: { value: "100000" } });
+    expect(screen.getByLabelText("One-time lump sum (NPR)")).toHaveValue("100000");
+    expect(screen.getByText("Paid in month 1")).toBeInTheDocument();
+  });
+
+  test("theme toggle switches to light and remembers it", async () => {
+    render(<App />);
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    await userEvent.click(screen.getByRole("button", { name: "Switch to light theme" }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(localStorage.getItem("theme")).toBe("light");
+    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toBeInTheDocument();
+  });
+
+  test("share button copies the link to this calculation", async () => {
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy a link to this calculation" }));
+    expect(writeText).toHaveBeenCalledWith(window.location.href);
+    expect(await screen.findByText(/Link copied/)).toBeInTheDocument();
+  });
+
+  test("amortization schedule collapses behind a show-all toggle", async () => {
+    render(<App />);
+    const toggle = screen.getByRole("button", { name: "Show all 60 rows" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAccessibleName("Show fewer rows");
+    expect(screen.getByRole("table", { name: "Monthly payment schedule" }).closest(".schedule")).toHaveClass("is-open");
+  });
+
+  test("compare tab takes a third loan and highlights the cheapest of three", async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole("tab", { name: "Compare" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add loan C" }));
+    expect(screen.queryByRole("button", { name: /Add loan/ })).toBeNull();
+    const rate = screen.getByLabelText("Loan C interest rate (% per year)");
+    await userEvent.clear(rate);
+    await userEvent.type(rate, "7");
+    expect(screen.getByRole("columnheader", { name: /Loan C.*cheaper/ })).toBeInTheDocument();
+    expect(screen.getByText(/Loan C saves NPR/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Remove loan C" }));
+    expect(screen.queryByLabelText("Loan C interest rate (% per year)")).toBeNull();
+  });
+
+  test("affordability result can be used in the calculator", async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole("tab", { name: "Affordability" }));
+    await userEvent.type(screen.getByLabelText("Maximum monthly payment (NPR)"), "25000");
+    await userEvent.click(screen.getByRole("button", { name: "Use this amount in the calculator" }));
+    expect(screen.getByRole("tab", { name: "Calculator" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Loan amount (NPR)")).toHaveValue(String(Math.floor(maxLoan(25000, 12, 60) / 1000) * 1000));
+  });
+
+  test("tabs move with the arrow keys", async () => {
+    render(<App />);
+    act(() => screen.getByRole("tab", { name: "Calculator" }).focus());
+    await userEvent.keyboard("{ArrowRight}");
+    expect(screen.getByRole("tab", { name: "Affordability" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Affordability" })).toHaveFocus();
+  });
+});
