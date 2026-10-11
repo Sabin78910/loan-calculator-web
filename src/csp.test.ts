@@ -13,3 +13,7 @@ test("injects the meta tag as the first element of head, at build time only", ()
   expect(out).toMatch(/<head>\s*<meta http-equiv="Content-Security-Policy" content="[^"]+" \/>\s*<title>/);
   expect(cspPlugin().apply).toBe("build");
 });
+
+test("connect-src allows only self and the sync API", () => {
+  expect(CSP).toContain("connect-src 'self' https://sync-api.sabin-apps.workers.dev;");
+});

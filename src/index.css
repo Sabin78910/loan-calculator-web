@@ -403,3 +403,5 @@ tr.up .diff { color: var(--coral); }
   .segmented button { justify-content: center; padding: 0 6px; font-size: 0.9rem; }
 }
 @media (max-width: 420px) { .segmented .icon { display: none; } }
+.sync-panel .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.sync-panel h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
