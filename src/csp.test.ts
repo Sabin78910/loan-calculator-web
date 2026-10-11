@@ -1,10 +1,11 @@
 import { CSP, cspPlugin, injectCsp } from "./csp";
 
-test("policy allows only self and Google Fonts (Devanagari), never inline or eval", () => {
+test("policy allows only same-origin sources, never inline or eval", () => {
   expect(CSP).not.toMatch(/unsafe-inline|unsafe-eval|\*/);
   expect(CSP).toContain("script-src 'self'");
-  expect(CSP).toContain("https://fonts.googleapis.com");
-  expect(CSP).toContain("font-src 'self' https://fonts.gstatic.com");
+  expect(CSP).not.toMatch(/googleapis|gstatic/);
+  expect(CSP).toContain("style-src 'self';");
+  expect(CSP).toContain("font-src 'self';");
   expect(CSP).toContain("object-src 'none'");
 });
 

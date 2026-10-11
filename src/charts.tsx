@@ -85,7 +85,7 @@ export function BalanceChart({ points, baseline }: { points: ChartPoint[]; basel
           {tip && <line className="crosshair" x1={x(tip.year)} x2={x(tip.year)} y1={T} y2={y(0)} />}
           {points.map((p, i) => (
             <circle
-              key={p.year} data-testid="chart-point" className="chart-point" cx={x(p.year)} cy={y(p.balance)} r={active === i ? 7 : 4.5} tabIndex={0}
+              key={p.year} data-testid="chart-point" className="chart-point" cx={x(p.year)} cy={y(p.balance)} r={active === i ? 7 : 4.5} tabIndex={0} role="img"
               aria-label={t("chartPoint", { year: num(p.year), balance: money(p.balance), interest: money(p.interestPaid) })}
               onMouseEnter={() => setActive(i)} onMouseLeave={() => setActive(null)} onFocus={() => setActive(i)} onBlur={() => setActive(null)}
             />

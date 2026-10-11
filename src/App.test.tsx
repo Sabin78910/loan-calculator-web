@@ -240,6 +240,11 @@ test("results card shows donut chart with legend", () => {
   expect(within(summary).getByText(/^Interest \d/)).toBeInTheDocument();
 });
 
+test("focusable chart points have a role so their aria-label is permitted", () => {
+  render(<App />);
+  for (const pt of screen.getAllByTestId("chart-point")) expect(pt).toHaveAttribute("role", "img");
+});
+
 test("balance chart shows value tooltip on hover and focus", async () => {
   render(<App />);
   const pts = screen.getAllByTestId("chart-point");

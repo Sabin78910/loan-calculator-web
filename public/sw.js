@@ -1,5 +1,5 @@
-const CACHE = "loan-calc-v3";
-const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./fonts/manrope-latin.woff2"];
+const CACHE = "loan-calc-v4";
+const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./fonts/manrope-latin.woff2", "./fonts/noto-sans-devanagari.woff2"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
