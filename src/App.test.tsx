@@ -668,3 +668,22 @@ describe("refinance card", () => {
     expect(screen.getByLabelText("Refinance result")).toHaveTextContent("not worth it");
   });
 });
+
+describe("compare share link", () => {
+  test("a compare URL opens the Compare tab with Loan C", () => {
+    window.history.replaceState(null, "", "/?compare=500000:12:60,500000:10:60,400000:9:48");
+    render(<App />);
+    expect(screen.getByRole("tab", { name: "Compare" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("heading", { name: "Loan C" })).toBeInTheDocument();
+  });
+  test("editing offers updates the URL; leaving Compare keeps calculator params only", async () => {
+    window.history.replaceState(null, "", "/?principal=100000&rate=10&months=12&compare=500000:12:60,500000:10:60");
+    render(<App />);
+    const amount = screen.getByLabelText(/Loan A.*amount/i);
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "300000");
+    expect(new URLSearchParams(window.location.search).get("compare")).toBe("300000:12:60,500000:10:60");
+    await userEvent.click(screen.getByRole("tab", { name: "Calculator" }));
+    expect(window.location.search).toBe("?principal=100000&rate=10&months=12");
+  });
+});

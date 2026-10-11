@@ -50,3 +50,23 @@ export function parseInputs(search: string, defaults: Inputs): Inputs {
   if (isCurrency(currency)) out.currency = currency;
   return out;
 }
+
+export const MAX_COMPARE = 3;
+export type CompareLoan = { principal: string; rate: string; months: string };
+
+/** Encodes offers as "principal:rate:months,..." (max 3). */
+export function encodeCompare(loans: CompareLoan[]): string {
+  return loans.slice(0, MAX_COMPARE).map((l) => `${l.principal.trim()}:${l.rate.trim()}:${l.months.trim()}`).join(",");
+}
+
+/** Decodes the compare param; invalid entries are dropped and at most 3 are kept. */
+export function decodeCompare(s: string | null | undefined): CompareLoan[] {
+  const out: CompareLoan[] = [];
+  for (const part of (s ?? "").split(",")) {
+    const fields = part.split(":").map((f) => f.trim());
+    if (fields.length !== 3 || fields.some((f) => f === "" || !Number.isFinite(Number(f)))) continue;
+    const [principal, rate, months] = fields;
+    if (Number(principal) > 0 && Number(rate) >= 0 && Number(months) > 0) out.push({ principal, rate, months });
+  }
+  return out.slice(0, MAX_COMPARE);
+}
