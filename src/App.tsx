@@ -1,6 +1,6 @@
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeRateChanges, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
+import { normalizeRateChanges, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
 import type { LumpMode } from "./emi";
 import { CURRENCIES, isCurrency, loadLang, saveLang } from "./i18n";
 import type { Currency, Lang } from "./i18n";
@@ -75,6 +75,8 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [principal, setPrincipal] = useState(initial.principal);
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
+  const [income, setIncome] = useState("");
+  const [existingEmis, setExistingEmis] = useState("");
   const [unit, setUnit] = useState<TenureUnit>("months");
   const [yearsText, setYearsText] = useState("");
   const chooseUnit = (u: TenureUnit) => { if (u === "years") setYearsText(monthsToYears(Number(months))); setUnit(u); };
@@ -190,6 +192,16 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
     }
   }, [payment, rate, months]);
 
+  const incomeCheck = useMemo(() => {
+    if (income === "") return { emi: null, loan: null, error: null };
+    try {
+      const emi = maxEmiForIncome(Number(income), Number(existingEmis || 0));
+      return { emi, loan: emi > 0 ? maxLoan(emi, Number(rate), Number(months)) : 0, error: null };
+    } catch (e) {
+      return { emi: null, loan: null, error: (e as Error).message };
+    }
+  }, [income, existingEmis, rate, months]);
+
   const hasResult = result !== null;
   useEffect(() => {
     const el = heroRef.current;
@@ -300,7 +312,17 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
               <label className="stack">{t("ratePerYear")}<input className="field-input" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} /></label>
               <label className="stack">{t("tenureMonths")}<input className="field-input" inputMode="numeric" value={months} onChange={(e) => setMonths(e.target.value)} /></label>
               {afford.error && <p className="error" role="alert">{err(afford.error)}</p>}
+              <label className="stack">{t("monthlyIncome")}<input className="field-input" inputMode="decimal" value={income} onChange={(e) => setIncome(e.target.value)} /></label>
+              <label className="stack">{t("existingEmis")}<input className="field-input" inputMode="decimal" value={existingEmis} onChange={(e) => setExistingEmis(e.target.value)} /></label>
+              {incomeCheck.error && <p className="error" role="alert">{err(incomeCheck.error)}</p>}
             </section>
+            {incomeCheck.emi !== null && incomeCheck.loan !== null && (
+              <section className="card" aria-label={t("incomeCheckResult")} aria-live="polite">
+                <h2 className="afford-amount">{t("maxEmiIncome", { amount: money(incomeCheck.emi) })}</h2>
+                <p>{t("maxLoan", { amount: money(incomeCheck.loan) })}</p>
+                <p className="lead">{t("incomeGuideline")}</p>
+              </section>
+            )}
             {afford.loan !== null ? (
               <section className="card hero afford-hero" aria-label={t("affordResult")} aria-live="polite">
                 <h2 className="afford-amount">{t("maxLoan", { amount: money(afford.loan) })}</h2>

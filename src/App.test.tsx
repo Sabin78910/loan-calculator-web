@@ -613,3 +613,26 @@ describe("v2 redesign", () => {
     expect(screen.getByRole("tab", { name: "Affordability" })).toHaveFocus();
   });
 });
+
+test("affordability income check shows max EMI and loan at 50% of income", async () => {
+  render(<App />);
+  await userEvent.click(screen.getByRole("tab", { name: "Affordability" }));
+  await userEvent.clear(screen.getByLabelText("Interest rate (% per year)"));
+  await userEvent.type(screen.getByLabelText("Interest rate (% per year)"), "10");
+  await userEvent.clear(screen.getByLabelText("Tenure (months)"));
+  await userEvent.type(screen.getByLabelText("Tenure (months)"), "60");
+  await userEvent.type(screen.getByLabelText("Monthly income (NPR)"), "100000");
+  await userEvent.type(screen.getByLabelText("Existing EMIs (NPR)"), "20000");
+  const r = screen.getByLabelText("Income check result");
+  expect(r).toHaveTextContent(`Max EMI at 50% of income: NPR ${money(30000)}`);
+  expect(r).toHaveTextContent(`NPR ${money(maxLoan(30000, 10, 60))}`);
+  expect(r).toHaveTextContent("guideline");
+});
+
+test("affordability income check shows zero when existing EMIs exceed the cap", async () => {
+  render(<App />);
+  await userEvent.click(screen.getByRole("tab", { name: "Affordability" }));
+  await userEvent.type(screen.getByLabelText("Monthly income (NPR)"), "100000");
+  await userEvent.type(screen.getByLabelText("Existing EMIs (NPR)"), "60000");
+  expect(screen.getByLabelText("Income check result")).toHaveTextContent(`Max EMI at 50% of income: NPR ${money(0)}`);
+});

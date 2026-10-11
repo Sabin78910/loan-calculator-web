@@ -29,6 +29,13 @@ export function maxLoan(payment: number, annualRate: number, months: number): nu
   return r === 0 ? payment * months : (payment * ((1 + r) ** months - 1)) / (r * (1 + r) ** months);
 }
 
+/** Max total EMI under the 50% debt-service-to-income guideline, net of existing EMIs. */
+export function maxEmiForIncome(income: number, existingEmis = 0): number {
+  if (!(income >= 0)) throw new Error("Income cannot be negative");
+  if (!(existingEmis >= 0)) throw new Error("Existing EMIs cannot be negative");
+  return Math.max(0, income * 0.5 - existingEmis);
+}
+
 export interface YearRow { year: number; principal: number; interest: number; balance: number; }
 
 export function groupByYear(rows: Row[]): YearRow[] {
