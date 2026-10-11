@@ -1,4 +1,4 @@
-import { apr, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
+import { apr, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, maxEmiForIncome, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -385,5 +385,20 @@ describe("compareMany", () => {
   });
   it("throws on invalid input", () => {
     expect(() => compareMany([loan(9), { principal: 1, rate: 9, months: 0 }])).toThrow("Tenure");
+  });
+});
+
+describe("maxEmiForIncome", () => {
+  it("is 50% of income minus existing EMIs", () => {
+    expect(maxEmiForIncome(100000, 20000)).toBe(30000);
+    expect(maxEmiForIncome(80000)).toBe(40000);
+  });
+  it("is zero for zero income or existing EMIs above the cap", () => {
+    expect(maxEmiForIncome(0)).toBe(0);
+    expect(maxEmiForIncome(100000, 60000)).toBe(0);
+  });
+  it("rejects negative inputs", () => {
+    expect(() => maxEmiForIncome(-1)).toThrow("Income");
+    expect(() => maxEmiForIncome(1000, -1)).toThrow("Existing");
   });
 });
