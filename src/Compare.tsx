@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { compareMany } from "./emi";
 import { Icon, useI18n } from "./ui";
 
@@ -7,9 +7,13 @@ const NAMES = ["A", "B", "C"] as const;
 export const MAX_LOANS = NAMES.length;
 
 /** Side-by-side comparison of up to three offers; the cheapest by total cost is highlighted. */
-export function Compare({ initial }: { initial: LoanInput }) {
+export function Compare({ initial, initialLoans, onLoansChange }: { initial: LoanInput; initialLoans?: LoanInput[]; onLoansChange?: (loans: LoanInput[]) => void }) {
   const { t, money, cash, lakh, err } = useI18n();
-  const [loans, setLoans] = useState<LoanInput[]>(() => [initial, { ...initial, rate: "10" }]);
+  const [loans, setLoans] = useState<LoanInput[]>(() => {
+    const seed = initialLoans?.length ? initialLoans : [initial];
+    return seed.length > 1 ? seed : [seed[0], { ...seed[0], rate: "10" }];
+  });
+  useEffect(() => { onLoansChange?.(loans); }, [loans, onLoansChange]);
   const update = (i: number, patch: Partial<LoanInput>) => setLoans(loans.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   const { cmp, error } = useMemo(() => {
     try {

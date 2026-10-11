@@ -59,3 +59,23 @@ test("interestOnly round-trips through the URL", () => {
   expect(parseInputs(serializeInputs({ ...d, interestOnly: "3" }), d).interestOnly).toBe("3");
   expect(serializeInputs({ ...d, interestOnly: "0" })).not.toContain("interestOnly");
 });
+
+import { decodeCompare, encodeCompare } from "./shareUrl";
+
+test("compare: decodes the documented format", () => {
+  expect(decodeCompare("500000:12:60,500000:10:60")).toEqual([
+    { principal: "500000", rate: "12", months: "60" },
+    { principal: "500000", rate: "10", months: "60" },
+  ]);
+});
+test("compare: drops invalid entries and caps at 3", () => {
+  expect(decodeCompare("abc:1:2,100:5,0:5:12,100:-1:12,100:5:0,100:5:12:1,:5:12,100:5:12")).toEqual([{ principal: "100", rate: "5", months: "12" }]);
+  expect(decodeCompare("1:1:1,2:2:2,3:3:3,4:4:4")).toHaveLength(3);
+  expect(decodeCompare(undefined)).toEqual([]);
+  expect(decodeCompare(null)).toEqual([]);
+});
+test("compare: encode round-trips", () => {
+  const loans = [{ principal: "1000", rate: "7.5", months: "12" }, { principal: "2000", rate: "8", months: "24" }];
+  expect(encodeCompare(loans)).toBe("1000:7.5:12,2000:8:24");
+  expect(decodeCompare(encodeCompare(loans))).toEqual(loans);
+});

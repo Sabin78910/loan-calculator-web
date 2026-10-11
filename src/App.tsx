@@ -4,7 +4,7 @@ import { normalizeRateChanges, refinance, apr, balanceChartData, breakdown, biwe
 import type { LumpMode } from "./emi";
 import { CURRENCIES, isCurrency, loadLang, saveLang } from "./i18n";
 import type { Currency, Lang } from "./i18n";
-import { decodeChanges, encodeChanges, MAX_RATE_CHANGES, parseInputs, serializeInputs } from "./shareUrl";
+import { decodeChanges, decodeCompare, encodeChanges, encodeCompare, MAX_RATE_CHANGES, parseInputs, serializeInputs } from "./shareUrl";
 import type { Inputs, RateChangeInput } from "./shareUrl";
 import { clearInputs, loadInputs, saveInputs } from "./savedInputs";
 import { monthsToYears, yearsToMonths, type TenureUnit } from "./tenure";
@@ -14,6 +14,7 @@ import { canAnimate, CurrencyContext, fillStyle, Icon, InfoButton, LangContext, 
 import type { IconName } from "./ui";
 import { BalanceChart, Donut } from "./charts";
 import { Compare } from "./Compare";
+import type { LoanInput } from "./Compare";
 
 const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", interestOnly: "", lumpMode: "", changes: "", currency: "NPR" };
 const TABS = [["emi", "tabCalc", "calc"], ["afford", "tabAfford", "gauge"], ["compare", "tabCompare", "bars"]] as const;
@@ -98,7 +99,9 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [changeList, setChangeList] = useState<RateChangeInput[]>(() => decodeChanges(initial.changes));
   const changes = encodeChanges(changeList);
   const updateChange = (i: number, patch: Partial<RateChangeInput>) => setChangeList(changeList.map((c, j) => (j === i ? { ...c, ...patch } : c)));
-  const [tab, setTab] = useState<Tab>("emi");
+  const [initialCompare] = useState(() => decodeCompare(new URLSearchParams(window.location.search).get("compare")));
+  const [tab, setTab] = useState<Tab>(initialCompare.length ? "compare" : "emi");
+  const [compareLoans, setCompareLoans] = useState<LoanInput[]>(initialCompare);
   const [payment, setPayment] = useState("");
   const [tax, setTax] = useState("");
   const [insurance, setInsurance] = useState("");
@@ -113,8 +116,11 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [showBar, setShowBar] = useState(false);
 
   useEffect(() => {
-    window.history.replaceState(null, "", serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency }));
-  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes, currency]);
+    let search = serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency });
+    const compare = tab === "compare" ? encodeCompare(compareLoans) : "";
+    if (compare) search += `&compare=${encodeURIComponent(compare)}`;
+    window.history.replaceState(null, "", search);
+  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes, currency, tab, compareLoans]);
 
   useEffect(() => {
     const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency };
@@ -314,7 +320,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
           ))}
         </div>
 
-        {tab === "compare" && <Compare initial={{ principal, rate, months }} />}
+        {tab === "compare" && <Compare initial={{ principal, rate, months }} initialLoans={initialCompare} onLoansChange={setCompareLoans} />}
 
         {tab === "afford" && (
           <div className="layout">
