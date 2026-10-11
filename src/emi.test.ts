@@ -1,4 +1,4 @@
-import { apr, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, maxEmiForIncome, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
+import { apr, refinance, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, maxEmiForIncome, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -400,5 +400,47 @@ describe("maxEmiForIncome", () => {
   it("rejects negative inputs", () => {
     expect(() => maxEmiForIncome(-1)).toThrow("Income");
     expect(() => maxEmiForIncome(1000, -1)).toThrow("Existing");
+  });
+});
+
+describe("refinance", () => {
+  test("lower rate saves interest net of fee and breaks even", () => {
+    const r = refinance(1_000_000, 12, 120, 24, 9, 10_000);
+    const bal = schedule(1_000_000, 12, 120)[23].balance;
+    expect(r.balance).toBeCloseTo(bal, 2);
+    expect(r.remainingMonths).toBe(96);
+    expect(r.newEmi).toBeCloseTo(calculateEmi(bal, 9, 96).emi, 6);
+    const gross = calculateEmi(bal, 12, 96).totalInterest - calculateEmi(bal, 9, 96).totalInterest;
+    expect(r.netSaving).toBeCloseTo(gross - 10_000, 4);
+    expect(r.worthIt).toBe(true);
+    expect(r.breakEvenMonth).toBe(Math.ceil(10_000 / (r.currentEmi - r.newEmi)));
+  });
+
+  test("fee larger than the saving is not worth it", () => {
+    const r = refinance(1_000_000, 12, 120, 24, 11.9, 200_000);
+    expect(r.netSaving).toBeLessThan(0);
+    expect(r.worthIt).toBe(false);
+    expect(r.breakEvenMonth === null || r.breakEvenMonth > r.remainingMonths).toBe(true);
+  });
+
+  test("zero months paid refinances the full principal", () => {
+    const r = refinance(500_000, 10, 60, 0, 8, 0);
+    expect(r.balance).toBe(500_000);
+    expect(r.remainingMonths).toBe(60);
+    expect(r.breakEvenMonth).toBe(1);
+    expect(r.netSaving).toBeCloseTo(calculateEmi(500_000, 10, 60).totalInterest - calculateEmi(500_000, 8, 60).totalInterest, 4);
+  });
+
+  test("higher new rate never breaks even", () => {
+    const r = refinance(500_000, 8, 60, 6, 10, 1000);
+    expect(r.breakEvenMonth).toBeNull();
+    expect(r.worthIt).toBe(false);
+  });
+
+  test("rejects invalid input", () => {
+    expect(() => refinance(500_000, 8, 60, 60, 7, 0)).toThrow("Months paid must be a whole number below the tenure");
+    expect(() => refinance(500_000, 8, 60, -1, 7, 0)).toThrow("Months paid must be a whole number below the tenure");
+    expect(() => refinance(500_000, 8, 60, 6, 7, -5)).toThrow("Fee cannot be negative");
+    expect(() => refinance(500_000, 8, 60, 6, -1, 0)).toThrow("Rate cannot be negative");
   });
 });
