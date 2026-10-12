@@ -1,4 +1,4 @@
-import { apr, refinance, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, maxEmiForIncome, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, tenureSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
+import { apr, refinance, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, maxEmiForIncome, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, tenureSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome, loanProgress } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -466,4 +466,59 @@ test("tenureSensitivity: skips tenures below 1 month or above the maximum", () =
   expect(tenureSensitivity(100000, 10, 6, [-24, -12, -5, 0]).map((r) => r.months)).toEqual([1, 6]);
   expect(tenureSensitivity(100000, 10, 350, [0, 12, 24], 360).map((r) => r.months)).toEqual([350]);
   expect(tenureSensitivity(100000, 10, 12, [-12, -11]).map((r) => r.months)).toEqual([1]);
+});
+
+describe("loanProgress", () => {
+  const rows = schedule(100000, 12, 12);
+  const sum = (xs: number[]) => xs.reduce((s, x) => s + x, 0);
+  const totalInterest = sum(rows.map((r) => r.interest));
+
+  test("0 months paid: nothing repaid, all interest to come", () => {
+    const p = loanProgress(rows, 0);
+    expect(p.balance).toBeCloseTo(100000, 2);
+    expect(p.principalRepaid).toBe(0);
+    expect(p.percentRepaid).toBe(0);
+    expect(p.interestPaid).toBe(0);
+    expect(p.interestRemaining).toBeCloseTo(totalInterest, 6);
+    expect(p.fullyRepaid).toBe(false);
+  });
+  test("mid-loan figures match the schedule", () => {
+    const p = loanProgress(rows, 6);
+    expect(p.balance).toBeCloseTo(rows[5].balance, 6);
+    expect(p.principalRepaid).toBeCloseTo(100000 - rows[5].balance, 6);
+    expect(p.percentRepaid).toBeCloseTo(((100000 - rows[5].balance) / 100000) * 100, 6);
+    expect(p.interestPaid + p.interestRemaining).toBeCloseTo(totalInterest, 6);
+  });
+  test("full tenure is fully repaid; larger values are clamped", () => {
+    const p = loanProgress(rows, 12);
+    expect(p.balance).toBe(0);
+    expect(p.percentRepaid).toBeCloseTo(100, 6);
+    expect(p.interestRemaining).toBeCloseTo(0, 6);
+    expect(p.fullyRepaid).toBe(true);
+    expect(loanProgress(rows, 99)).toEqual(p);
+  });
+  test("rejects negative and fractional months with a clear message", () => {
+    expect(() => loanProgress(rows, -1)).toThrow("Months paid must be a whole number of 0 or more");
+    expect(() => loanProgress(rows, 1.5)).toThrow("Months paid must be a whole number of 0 or more");
+    expect(() => loanProgress(rows, NaN)).toThrow("Months paid must be a whole number of 0 or more");
+  });
+  test("with extra payments the loan ends early and counts as repaid", () => {
+    const ex = schedule(100000, 12, 12, { monthly: 5000 });
+    expect(ex.length).toBeLessThan(12);
+    const p = loanProgress(ex, ex.length);
+    expect(p.fullyRepaid).toBe(true);
+    expect(loanProgress(ex, 12).fullyRepaid).toBe(true);
+    const mid = loanProgress(ex, 3);
+    expect(mid.balance).toBeCloseTo(ex[2].balance, 6);
+    expect(mid.principalRepaid).toBeCloseTo(100000 - ex[2].balance, 6);
+  });
+  test("with rate changes interest follows the changed schedule", () => {
+    const rc = schedule(100000, 12, 12, {}, [{ fromMonth: 7, annualRate: 6 }]);
+    const p = loanProgress(rc, 6);
+    expect(p.interestPaid).toBeCloseTo(sum(rc.slice(0, 6).map((r) => r.interest)), 6);
+    expect(p.interestRemaining).toBeCloseTo(sum(rc.slice(6).map((r) => r.interest)), 6);
+  });
+  test("empty schedule is treated as repaid", () => {
+    expect(loanProgress([], 0).fullyRepaid).toBe(true);
+  });
 });

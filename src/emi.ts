@@ -278,3 +278,18 @@ export function refinance(principal: number, annualRate: number, months: number,
   const breakEvenMonth = fee === 0 ? (monthlySaving > 0 ? 1 : null) : monthlySaving > 0 ? Math.ceil(fee / monthlySaving) : null;
   return { balance, remainingMonths, currentEmi: current.emi, newEmi: next.emi, netSaving, breakEvenMonth, worthIt: netSaving > 0 };
 }
+
+export interface LoanProgress { monthsPaid: number; balance: number; principalRepaid: number; percentRepaid: number; interestPaid: number; interestRemaining: number; fullyRepaid: boolean; }
+
+/** Position in the loan after `monthsPaid` payments of `rows`. Months beyond the schedule (it ends early with extra payments) are clamped to its end. */
+export function loanProgress(rows: Row[], monthsPaid: number): LoanProgress {
+  if (!Number.isInteger(monthsPaid) || monthsPaid < 0) throw new Error("Months paid must be a whole number of 0 or more");
+  const paid = Math.min(monthsPaid, rows.length);
+  let principal = 0, repaid = 0, interestPaid = 0, interestRemaining = 0;
+  rows.forEach((r, i) => {
+    principal += r.principal;
+    if (i < paid) { repaid += r.principal; interestPaid += r.interest; } else interestRemaining += r.interest;
+  });
+  const fullyRepaid = paid >= rows.length;
+  return { monthsPaid: paid, balance: fullyRepaid ? 0 : paid === 0 ? principal : rows[paid - 1].balance, principalRepaid: repaid, percentRepaid: principal > 0 ? (repaid / principal) * 100 : 100, interestPaid, interestRemaining, fullyRepaid };
+}

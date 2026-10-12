@@ -429,3 +429,13 @@ tr.up .diff { color: var(--coral); }
 .page-footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
 .toolbar { gap: 8px; }
 .toolbar > * { min-height: 44px; min-width: 44px; }
+
+.progress-card .lead { margin-bottom: 16px; }
+.progress-panel { margin-top: 16px; }
+.progress-pct { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; margin: 0 0 8px; }
+.progress-track { height: 12px; border-radius: 999px; background: var(--track); overflow: hidden; }
+.progress-fill { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--emerald-2), var(--emerald)); }
+.progress-done { margin: 12px 0 0; font-weight: 600; }
+.progress-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 24px; margin: 16px 0 0; }
+.progress-stats dt { color: var(--muted); font-size: .875rem; }
+.progress-stats dd { margin: 2px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }

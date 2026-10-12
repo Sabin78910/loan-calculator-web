@@ -741,3 +741,39 @@ test("tenure what-if drops rows outside 1 to 360 months", () => {
   const table = screen.getByRole("table", { name: "What if the tenure changes?" });
   expect(within(table).getAllByRole("row")).toHaveLength(4);
 });
+
+describe("loan progress", () => {
+  test("entering months paid shows the panel with the expected balance; clearing hides it", async () => {
+    render(<App />);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    const input = screen.getByLabelText("Payments made so far (months)");
+    await userEvent.type(input, "12");
+    const bar = screen.getByRole("progressbar");
+    const balance = schedule(500000, 12, 60)[11].balance;
+    const pct = ((500000 - balance) / 500000) * 100;
+    expect(bar).toHaveAttribute("aria-valuetext", `${Math.floor(pct)}% repaid`);
+    const group = screen.getByRole("group", { name: "Loan progress result" });
+    expect(within(group).getByText(money(balance))).toBeInTheDocument();
+    expect(screen.queryByText("Loan fully repaid")).not.toBeInTheDocument();
+    await userEvent.clear(input);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  });
+
+  test("full tenure shows the quiet completion state", async () => {
+    render(<App />);
+    await userEvent.type(screen.getByLabelText("Payments made so far (months)"), "60");
+    expect(screen.getByText("Loan fully repaid")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100");
+  });
+
+  test("shows an error when months paid exceeds the tenure and is shared in the URL", async () => {
+    render(<App />);
+    const input = screen.getByLabelText("Payments made so far (months)");
+    await userEvent.type(input, "61");
+    expect(screen.getByRole("alert")).toHaveTextContent("Months paid cannot be more than the tenure");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    await userEvent.clear(input);
+    await userEvent.type(input, "6");
+    expect(window.location.search).toContain("monthsPaid=6");
+  });
+});

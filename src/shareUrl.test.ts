@@ -79,3 +79,12 @@ test("compare: encode round-trips", () => {
   expect(encodeCompare(loans)).toBe("1000:7.5:12,2000:8:24");
   expect(decodeCompare(encodeCompare(loans))).toEqual(loans);
 });
+
+test("monthsPaid round-trips through the URL and is omitted when empty or zero", () => {
+  const base = { principal: "100000", rate: "10", months: "12", extra: "", lump: "", lumpMonth: "1" };
+  const url = serializeInputs({ ...base, monthsPaid: "5" });
+  expect(url).toContain("monthsPaid=5");
+  expect(parseInputs(url, { ...base, monthsPaid: "" }).monthsPaid).toBe("5");
+  expect(serializeInputs({ ...base, monthsPaid: "" })).not.toContain("monthsPaid");
+  expect(serializeInputs({ ...base, monthsPaid: "0" })).toContain("monthsPaid=0");
+});
