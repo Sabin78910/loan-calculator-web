@@ -68,3 +68,11 @@ test("lump mode is saved, validated, and old saves load without it", () => {
   expect(loadInputs(store({ lumpMode: "zzz" }), d).lumpMode).toBeUndefined();
   expect(loadInputs(store({ principal: "5" }), d).lumpMode).toBeUndefined();
 });
+
+test("monthsPaid round-trips and may be empty", () => {
+  const s = mem();
+  saveInputs(s, { ...defaults, monthsPaid: "12" });
+  expect(loadInputs(s, { ...defaults, monthsPaid: "" }).monthsPaid).toBe("12");
+  saveInputs(s, { ...defaults, monthsPaid: "" });
+  expect(loadInputs(s, { ...defaults, monthsPaid: "3" }).monthsPaid).toBe("");
+});

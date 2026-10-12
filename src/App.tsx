@@ -1,6 +1,6 @@
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeRateChanges, refinance, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, tenureSensitivity, toCsv } from "./emi";
+import { loanProgress, normalizeRateChanges, refinance, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, tenureSensitivity, toCsv } from "./emi";
 import type { LumpMode } from "./emi";
 import { CURRENCIES, isCurrency, loadLang, saveLang } from "./i18n";
 import type { Currency, Lang } from "./i18n";
@@ -19,9 +19,30 @@ import { SyncPanel } from "./SyncPanel";
 import { useSync } from "./useSync";
 import type { SyncDoc } from "./syncData";
 
-const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", interestOnly: "", lumpMode: "", changes: "", currency: "NPR" };
+const DEFAULTS = { principal: "500000", rate: "12", months: "60", extra: "", lump: "", lumpMonth: "1", biweekly: "", interestOnly: "", monthsPaid: "", lumpMode: "", changes: "", currency: "NPR" };
 const TABS = [["emi", "tabCalc", "calc"], ["afford", "tabAfford", "gauge"], ["compare", "tabCompare", "bars"]] as const;
 type Tab = (typeof TABS)[number][0];
+
+function ProgressPanel({ pct, balance, principalRepaid, interestPaid, interestRemaining, fullyRepaid }: { pct: number; balance: number; principalRepaid: number; interestPaid: number; interestRemaining: number; fullyRepaid: boolean }) {
+  const { t, money, num } = useI18n();
+  const shown = useCountUp(pct, 900);
+  const text = t("progressPct", { pct: num(Math.floor(pct + 1e-9)) });
+  return (
+    <div className="progress-panel" role="group" aria-label={t("progressResult")}>
+      <p className="progress-pct">{t("progressPct", { pct: num(Math.floor(shown + 1e-9)) })}</p>
+      <div className="progress-track" role="progressbar" aria-label={t("progressTitle")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Number(pct.toFixed(1))} aria-valuetext={text}>
+        <span className="progress-fill" style={{ width: `${Math.min(100, shown)}%` }} />
+      </div>
+      {fullyRepaid && <p className="progress-done">{t("progressDone")}</p>}
+      <dl className="progress-stats">
+        <div><dt>{t("progressBalance")}</dt><dd>{money(balance)}</dd></div>
+        <div><dt>{t("progressRepaid")}</dt><dd>{money(principalRepaid)}</dd></div>
+        <div><dt>{t("progressInterestPaid")}</dt><dd>{money(interestPaid)}</dd></div>
+        <div><dt>{t("progressInterestLeft")}</dt><dd>{money(interestRemaining)}</dd></div>
+      </dl>
+    </div>
+  );
+}
 
 function SavingsBadge({ interestSaved, monthsSaved }: { interestSaved: number; monthsSaved: number }) {
   const { t, money, num } = useI18n();
@@ -80,6 +101,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [rate, setRate] = useState(initial.rate);
   const [months, setMonths] = useState(initial.months);
   const [refiPaid, setRefiPaid] = useState("0");
+  const [monthsPaid, setMonthsPaid] = useState(initial.monthsPaid ?? "");
   const [refiRate, setRefiRate] = useState("");
   const [refiFee, setRefiFee] = useState("");
   const [income, setIncome] = useState("");
@@ -121,17 +143,17 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const [showBar, setShowBar] = useState(false);
 
   useEffect(() => {
-    let search = serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency });
+    let search = serializeInputs({ principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, monthsPaid, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency });
     const compare = tab === "compare" ? encodeCompare(compareLoans) : "";
     if (compare) search += `&compare=${encodeURIComponent(compare)}`;
     window.history.replaceState(null, "", search);
-  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes, currency, tab, compareLoans]);
+  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, monthsPaid, changes, currency, tab, compareLoans]);
 
   useEffect(() => {
-    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency };
+    const cur = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, monthsPaid, lumpMode: lumpMode === "emi" ? "emi" : "", changes, currency };
     if ((Object.keys(DEFAULTS) as (keyof typeof DEFAULTS)[]).every((k) => cur[k] === DEFAULTS[k])) clearInputs(window.localStorage);
     else saveInputs(window.localStorage, cur);
-  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes, currency]);
+  }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, monthsPaid, changes, currency]);
 
   useEffect(() => {
     if (!toast) return;
@@ -142,7 +164,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
   const clearSaved = () => {
     clearInputs(window.localStorage);
     setPrincipal(DEFAULTS.principal); setRate(DEFAULTS.rate); setMonths(DEFAULTS.months);
-    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setLumpMode("tenure"); setBiweekly(false); setInterestOnly(DEFAULTS.interestOnly); setChangeList([]); setCurrency("NPR");
+    setExtra(DEFAULTS.extra); setLump(DEFAULTS.lump); setLumpMonth(DEFAULTS.lumpMonth); setLumpMode("tenure"); setBiweekly(false); setInterestOnly(DEFAULTS.interestOnly); setMonthsPaid(DEFAULTS.monthsPaid); setChangeList([]); setCurrency("NPR");
   };
 
   const inputsNow = { principal, rate, months, extra, lump, lumpMonth, biweekly: biweekly ? "1" : "", interestOnly, lumpMode: lumpMode === "emi" ? "emi" : "", changes };
@@ -238,6 +260,16 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
       return { value: null, error: (e as Error).message };
     }
   }, [principal, rate, months, refiPaid, refiRate, refiFee]);
+
+  const progress = useMemo(() => {
+    if (monthsPaid.trim() === "" || rows.length === 0) return { value: null, error: null };
+    try {
+      if (Number(monthsPaid) > Number(months)) throw new Error("Months paid cannot be more than the tenure");
+      return { value: loanProgress(rows, Number(monthsPaid)), error: null };
+    } catch (e) {
+      return { value: null, error: (e as Error).message };
+    }
+  }, [rows, months, monthsPaid]);
 
   const incomeCheck = useMemo(() => {
     if (income === "") return { emi: null, loan: null, error: null };
@@ -529,6 +561,13 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
           {result && split && (
             <div className="bento">
               <BalanceChart points={balanceChartData(rows, Number(principal))} baseline={savings && savings.interestSaved > 0.5 ? balanceChartData(baseRows, Number(principal)) : null} />
+              <section className="card no-print progress-card" aria-labelledby="progress-title">
+                <h2 className="card-title" id="progress-title">{t("progressTitle")}</h2>
+                <p className="lead">{t("progressIntro")}</p>
+                <label className="stack">{t("progressInput")}<input className="field-input" inputMode="numeric" placeholder="0" value={monthsPaid} onChange={(e) => setMonthsPaid(e.target.value)} aria-invalid={progress.error ? true : undefined} aria-describedby={progress.error ? "progress-error" : undefined} /></label>
+                {progress.error && <p id="progress-error" className="error" role="alert">{err(progress.error)}</p>}
+                {progress.value && <ProgressPanel pct={progress.value.percentRepaid} balance={progress.value.balance} principalRepaid={progress.value.principalRepaid} interestPaid={progress.value.interestPaid} interestRemaining={progress.value.interestRemaining} fullyRepaid={progress.value.fullyRepaid} />}
+              </section>
               <section className="card no-print milestones" aria-label={t("milestonesAria")}>
                 <h2 className="card-title">{t("milestones")}</h2>
                 <p className="muted">{t("milestonesIntro")} ({t("term.amortization")}) <InfoButton term="amortization" /></p>
