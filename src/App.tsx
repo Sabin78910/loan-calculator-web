@@ -1,5 +1,6 @@
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { prepayVsFd } from "./fd";
 import { loanProgress, normalizeRateChanges, refinance, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, tenureSensitivity, toCsv } from "./emi";
 import type { LumpMode } from "./emi";
 import { CURRENCIES, isCurrency, loadLang, saveLang } from "./i18n";
@@ -223,6 +224,18 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
       return { result: null, rows: [], baseRows: [], savings: null, lump: null, error: (e as Error).message };
     }
   }, [principal, rate, months, extra, lump, lumpMonth, lumpMode, biweekly, interestOnly, changes]);
+
+  const [fdRate, setFdRate] = useState("");
+  const [fdTax, setFdTax] = useState("6");
+  const [fdHorizon, setFdHorizon] = useState("");
+  const fd = useMemo(() => {
+    if (!result || fdRate === "") return null;
+    try {
+      return { value: prepayVsFd(rows, baseRows, Number(fdRate), Number(fdTax), fdHorizon === "" ? Number(months) : Number(fdHorizon)), error: null };
+    } catch (e) {
+      return { value: null, error: (e as Error).message };
+    }
+  }, [result, rows, baseRows, fdRate, fdTax, fdHorizon, months]);
 
   const aprResult = useMemo(() => {
     if (!result || upfront === "") return null;
@@ -473,6 +486,28 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                     </div>
                   )}
                   <button type="button" className="btn btn-ghost" onClick={fineTune}>{t("fineTune")}<Icon name="chevron" size={18} /></button>
+                </section>
+              )}
+              {result && rows.some((row) => row.extra > 0) && (
+                <section className="card no-print fd-card" aria-labelledby="fd-title">
+                  <h2 id="fd-title" className="card-title">{t("fdTitle")}</h2>
+                  <p className="muted">{t("fdIntro")}</p>
+                  <div className="stack"><label htmlFor="fd-rate">{t("fdRate")}</label><span className="input-suffix"><input id="fd-rate" className="field-input" inputMode="decimal" placeholder="8" value={fdRate} onChange={(e) => setFdRate(e.target.value)} /><span className="suffix" aria-hidden="true">%</span></span></div>
+                  <div className="stack"><label htmlFor="fd-tax">{t("fdTax")}</label><input id="fd-tax" className="field-input" inputMode="decimal" value={fdTax} onChange={(e) => setFdTax(e.target.value)} /><span className="hint">{t("fdTaxNote")}</span></div>
+                  <div className="stack"><label htmlFor="fd-horizon">{t("fdHorizon")}</label><input id="fd-horizon" className="field-input" inputMode="numeric" placeholder={months} value={fdHorizon} onChange={(e) => setFdHorizon(e.target.value)} /><span className="hint">{t("fdHorizonNote")}</span></div>
+                  {fd?.error && <p className="error" role="alert">{err(fd.error)}</p>}
+                  {fd?.value && (
+                    <div role="group" aria-label={t("fdResult")} aria-live="polite">
+                      <p>{t("fdSaved", { amount: money(fd.value.interestSaved) })}</p>
+                      <p>{t("fdEarned", { amount: money(fd.value.fdEarnings) })}</p>
+                      <p className="gold-note"><Icon name="sparkle" />{fd.value.winner === "tie" ? t("fdTie") : t(fd.value.winner === "prepay" ? "fdPrepayWins" : "fdFdWins", { amount: money(fd.value.difference) })}</p>
+                      {fd.value.breakEvenRate !== null && <p>{t("fdBreakEven", { rate: num(Math.round(fd.value.breakEvenRate * 100) / 100) })}</p>}
+                    </div>
+                  )}
+                  <details>
+                    <summary>{t("fdAssumptions")}</summary>
+                    <ul><li>{t("fdAssume1")}</li><li>{t("fdAssume2")}</li><li>{t("fdAssume3")}</li><li>{t("fdAssume4")}</li></ul>
+                  </details>
                 </section>
               )}
 
