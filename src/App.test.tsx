@@ -719,3 +719,25 @@ describe("design review fixes", () => {
     expect(within(footer).getByRole("button", { name: "Clear saved data" })).toBeInTheDocument();
   });
 });
+
+test("tenure what-if shows 5 rows, labels cheaper/costlier, and choosing a row updates the tenure", async () => {
+  localStorage.clear();
+  render(<App />);
+  const table = screen.getByRole("table", { name: "What if the tenure changes?" });
+  expect(within(table).getAllByRole("row")).toHaveLength(6);
+  expect(within(table).getByText(money(calculateEmi(500000, 12, 84).emi))).toBeInTheDocument();
+  expect(within(table).getAllByText("Costlier overall").length).toBeGreaterThan(0);
+  expect(within(table).getAllByText("Cheaper overall").length).toBeGreaterThan(0);
+  const buttons = within(table).getAllByRole("button", { name: /Use this tenure/ });
+  expect(buttons).toHaveLength(4);
+  await userEvent.click(buttons[3]);
+  expect(screen.getByLabelText("Tenure (months)", { selector: "input:not([type=range])" })).toHaveValue("84");
+});
+
+test("tenure what-if drops rows outside 1 to 360 months", () => {
+  localStorage.clear();
+  render(<App />);
+  fireEvent.change(screen.getByLabelText("Tenure (months)", { selector: "input:not([type=range])" }), { target: { value: "6" } });
+  const table = screen.getByRole("table", { name: "What if the tenure changes?" });
+  expect(within(table).getAllByRole("row")).toHaveLength(4);
+});

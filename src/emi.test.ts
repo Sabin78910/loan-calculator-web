@@ -1,4 +1,4 @@
-import { apr, refinance, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, maxEmiForIncome, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
+import { apr, refinance, compareMany, balanceChartData, donutArcs, compareLoans, breakdown, calculateEmi, maxLoan, maxEmiForIncome, extraSavings, groupByYear, schedule, toCsv, monthlyCost, payoffDate, milestones, rateSensitivity, tenureSensitivity, biweeklyExtras, normalizeRateChanges , emiAfterLump, lumpOutcome } from "./emi";
 
 test("known EMI value", () => {
   expect(calculateEmi(100000, 10, 12).emi).toBeCloseTo(8791.59, 2);
@@ -443,4 +443,27 @@ describe("refinance", () => {
     expect(() => refinance(500_000, 8, 60, 6, 7, -5)).toThrow("Fee cannot be negative");
     expect(() => refinance(500_000, 8, 60, 6, -1, 0)).toThrow("Rate cannot be negative");
   });
+});
+
+test("tenureSensitivity: delta 0 equals base; longer tenure lowers EMI but adds interest", () => {
+  const base = calculateEmi(500000, 10, 60);
+  const rows = tenureSensitivity(500000, 10, 60, [-12, 0, 12]);
+  expect(rows.map((r) => r.months)).toEqual([48, 60, 72]);
+  expect(rows[1].emi).toBeCloseTo(base.emi, 6);
+  expect(rows[1].interestDiff).toBeCloseTo(0, 6);
+  expect(rows[0].emi).toBeGreaterThan(rows[1].emi);
+  expect(rows[0].interestDiff).toBeLessThan(0);
+  expect(rows[2].emi).toBeLessThan(rows[1].emi);
+  expect(rows[2].interestDiff).toBeGreaterThan(0);
+  expect(rows[2].emiDiff).toBeCloseTo(rows[2].emi - base.emi, 6);
+});
+test("tenureSensitivity: zero rate has no interest at any tenure", () => {
+  const rows = tenureSensitivity(120000, 0, 12, [-6, 0, 12]);
+  expect(rows.map((r) => r.totalInterest)).toEqual([0, 0, 0]);
+  expect(rows[0].emi).toBe(20000);
+});
+test("tenureSensitivity: skips tenures below 1 month or above the maximum", () => {
+  expect(tenureSensitivity(100000, 10, 6, [-24, -12, -5, 0]).map((r) => r.months)).toEqual([1, 6]);
+  expect(tenureSensitivity(100000, 10, 350, [0, 12, 24], 360).map((r) => r.months)).toEqual([350]);
+  expect(tenureSensitivity(100000, 10, 12, [-12, -11]).map((r) => r.months)).toEqual([1]);
 });
