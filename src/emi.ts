@@ -231,6 +231,19 @@ export function rateSensitivity(principal: number, annualRate: number, months: n
   });
 }
 
+export interface TenureRow { delta: number; months: number; emi: number; totalInterest: number; emiDiff: number; interestDiff: number; }
+
+/** EMI and total interest at nearby tenures (plain amortisation). Tenures outside 1..maxMonths are skipped. */
+export function tenureSensitivity(principal: number, annualRate: number, months: number, deltas: number[], maxMonths = 360): TenureRow[] {
+  const base = calculateEmi(principal, annualRate, months);
+  return deltas.flatMap((delta) => {
+    const m = months + delta;
+    if (m < 1 || m > maxMonths) return [];
+    const r = calculateEmi(principal, annualRate, m);
+    return [{ delta, months: m, emi: r.emi, totalInterest: r.totalInterest, emiDiff: r.emi - base.emi, interestDiff: r.totalInterest - base.totalInterest }];
+  });
+}
+
 /** Annualised rate (%) that equates net proceeds (principal - fee) to the EMI stream, via bisection on the monthly IRR. */
 export function apr(principal: number, fee: number, annualRate: number, months: number): number {
   const { emi } = calculateEmi(principal, annualRate, months);

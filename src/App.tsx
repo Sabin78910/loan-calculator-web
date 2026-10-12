@@ -1,6 +1,6 @@
 import type { CSSProperties, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { normalizeRateChanges, refinance, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, toCsv } from "./emi";
+import { normalizeRateChanges, refinance, apr, balanceChartData, breakdown, biweeklyExtras, calculateEmi, extraSavings, groupByYear, lumpOutcome, maxEmiForIncome, maxLoan, milestones, monthlyCost, payoffDate, rateSensitivity, schedule, tenureSensitivity, toCsv } from "./emi";
 import type { LumpMode } from "./emi";
 import { CURRENCIES, isCurrency, loadLang, saveLang } from "./i18n";
 import type { Currency, Lang } from "./i18n";
@@ -590,6 +590,29 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                   </tbody>
                 </table>
                 </div>
+              </section>
+              <section className="card no-print table-card">
+                <div className="table-scroll" role="region" tabIndex={0} aria-label={t("whatIfTenure")}>
+                <table>
+                  <caption>{t("whatIfTenure")}</caption>
+                  <thead><tr><th scope="col">{t("colTenure")}</th><th scope="col">{t("colEmi")}</th><th scope="col">{t("colTotalInterest")}</th><th scope="col">{t("colEmiDiff")}</th><th scope="col">{t("colInterestDiff")}</th><th scope="col"><span className="sr-only">{t("useTenure")}</span></th></tr></thead>
+                  <tbody>
+                    {tenureSensitivity(Number(principal), Number(rate), Number(months), [-24, -12, 0, 12, 24]).map((s) => {
+                      const label = unit === "years" ? t("tenureShortYears", { n: num(Math.round((s.months / 12) * 100) / 100, 2, false) }) : t("tenureShortMonths", { n: num(s.months) });
+                      return (
+                        <tr key={s.delta} className={s.delta === 0 ? "current" : s.interestDiff < 0 ? "down" : "up"}>
+                          <th scope="row">{label}{s.delta === 0 && <>{" · "}<span className="tag">{t("tenureCurrent")}</span></>}</th>
+                          <td>{money(s.emi)}</td><td>{money(s.totalInterest)}</td>
+                          <td className="diff">{signed(s.emiDiff)}</td>
+                          <td className="diff">{signed(s.interestDiff)}{s.delta !== 0 && <>{" · "}<span className="tag">{s.interestDiff < 0 ? t("tenureCheaper") : t("tenureCostlier")}</span></>}</td>
+                          <td>{s.delta !== 0 && <button type="button" className="btn btn-ghost" aria-label={t("useTenureFor", { tenure: label })} onClick={() => setMonthsSynced(String(s.months))}>{t("useTenure")}</button>}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                </div>
+                <p className="note">{t("tenureNote")}</p>
               </section>
               <section className="card schedule-card no-print" aria-label={t("amortization")}>
                 <div className="schedule-head">
