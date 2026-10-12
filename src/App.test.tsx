@@ -777,3 +777,26 @@ describe("loan progress", () => {
     expect(window.location.search).toContain("monthsPaid=6");
   });
 });
+
+describe("prepay or invest card", () => {
+  test("compares prepaying with a fixed deposit and shows the break-even rate", async () => {
+    render(<App />);
+    await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "5000");
+    await userEvent.type(screen.getByLabelText("FD interest rate (% per year)"), "8");
+    const card = screen.getByLabelText("Prepay or invest result");
+    expect(screen.getByLabelText("Tax on FD interest (%)")).toHaveValue("6");
+    expect(card).toHaveTextContent("Prepaying wins");
+    expect(card).toHaveTextContent("Break-even FD rate");
+    await userEvent.clear(screen.getByLabelText("FD interest rate (% per year)"));
+    await userEvent.type(screen.getByLabelText("FD interest rate (% per year)"), "40");
+    expect(screen.getByLabelText("Prepay or invest result")).toHaveTextContent("The fixed deposit wins");
+  });
+  test("shows an error for an invalid tax rate", async () => {
+    render(<App />);
+    await userEvent.type(screen.getByLabelText("Monthly extra payment (NPR)"), "5000");
+    await userEvent.type(screen.getByLabelText("FD interest rate (% per year)"), "8");
+    await userEvent.clear(screen.getByLabelText("Tax on FD interest (%)"));
+    await userEvent.type(screen.getByLabelText("Tax on FD interest (%)"), "150");
+    expect(screen.getByText("Tax must be between 0 and 100")).toBeInTheDocument();
+  });
+});
