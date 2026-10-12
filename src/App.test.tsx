@@ -692,3 +692,30 @@ describe("compare share link", () => {
     expect(window.location.search).toBe("?principal=100000&rate=10&months=12");
   });
 });
+
+describe("design review fixes", () => {
+  test("wide tables sit in focusable, labelled scroll regions", () => {
+    render(<App />);
+    const whatIf = screen.getByRole("region", { name: "What if the rate changes?" });
+    expect(whatIf).toHaveAttribute("tabindex", "0");
+    expect(within(whatIf).getByRole("table")).toBeInTheDocument();
+    const sched = screen.getAllByRole("region").filter((r) => r.classList.contains("table-scroll"));
+    expect(sched.length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("refinance inputs have placeholders and unit suffixes", () => {
+    render(<App />);
+    const rate = screen.getByLabelText("New rate (% per year)");
+    const fee = screen.getByLabelText("Switching fee (NPR)");
+    expect(rate).toHaveAttribute("placeholder");
+    expect(fee).toHaveAttribute("placeholder");
+    expect(rate.parentElement).toHaveTextContent("%");
+    expect(fee.parentElement).toHaveTextContent("NPR");
+  });
+
+  test("Clear saved data lives in the page footer", () => {
+    render(<App />);
+    const footer = screen.getByRole("contentinfo", { name: "Settings" });
+    expect(within(footer).getByRole("button", { name: "Clear saved data" })).toBeInTheDocument();
+  });
+});

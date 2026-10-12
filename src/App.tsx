@@ -489,7 +489,6 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
               </details>
               {aprResult?.error && <p className="error" role="alert">{err(aprResult.error)}</p>}
               {error && <p id="calc-error" className="error" role="alert">{err(error)}</p>}
-              <button type="button" className="btn btn-ghost" onClick={clearSaved}><Icon name="reset" size={18} />{t("clearSaved")}</button>
               <SyncPanel {...sync} connectCode={sync.useCode} onCopied={() => setToast(t("syncCopied"))} />
             </div>
 
@@ -563,8 +562,8 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                 <h2 className="card-title" id="refi-title">{t("refiTitle")}</h2>
                 <p className="lead">{t("refiIntro")}</p>
                 <label className="stack">{t("refiMonthsPaid")}<input className="field-input" inputMode="numeric" value={refiPaid} onChange={(e) => setRefiPaid(e.target.value)} /></label>
-                <label className="stack">{t("refiNewRate")}<input className="field-input" inputMode="decimal" value={refiRate} onChange={(e) => setRefiRate(e.target.value)} /></label>
-                <label className="stack">{t("refiFee")}<input className="field-input" inputMode="decimal" value={refiFee} onChange={(e) => setRefiFee(e.target.value)} /></label>
+                <div className="stack"><label htmlFor="refi-rate">{t("refiNewRate")}</label><span className="input-suffix"><input id="refi-rate" className="field-input" inputMode="decimal" placeholder="9" value={refiRate} onChange={(e) => setRefiRate(e.target.value)} /><span className="suffix" aria-hidden="true">%</span></span></div>
+                <div className="stack"><label htmlFor="refi-fee">{t("refiFee")}</label><span className="input-suffix"><input id="refi-fee" className="field-input" inputMode="decimal" placeholder="0" value={refiFee} onChange={(e) => setRefiFee(e.target.value)} /><span className="suffix" aria-hidden="true">NPR</span></span></div>
                 {refi.error && <p className="error" role="alert">{err(refi.error)}</p>}
                 {refi.value && (
                   <div aria-label={t("refiResult")} role="group" aria-live="polite">
@@ -575,7 +574,8 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                   </div>
                 )}
               </section>
-              <section className="card no-print table-card" aria-label={t("whatIfRate")}>
+              <section className="card no-print table-card">
+                <div className="table-scroll" role="region" tabIndex={0} aria-label={t("whatIfRate")}>
                 <table>
                   <caption>{t("whatIfRate")}</caption>
                   <thead><tr><th scope="col">{t("colRateChange")}</th><th scope="col">{t("colRate")}</th><th scope="col">{t("colEmi")}</th><th scope="col">{t("colTotalInterest")}</th><th scope="col">{t("colEmiDiff")}</th><th scope="col">{t("colInterestDiff")}</th></tr></thead>
@@ -589,6 +589,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                     ))}
                   </tbody>
                 </table>
+                </div>
               </section>
               <section className="card schedule-card no-print" aria-label={t("amortization")}>
                 <div className="schedule-head">
@@ -603,6 +604,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                   </div>
                 </div>
                 <div id="schedule-body" className={`schedule${scheduleOpen ? " is-open" : ""}`}>
+                  <div className="table-scroll" role="region" tabIndex={0} aria-label={t(view === "monthly" ? "monthlySchedule" : "yearlySchedule")}>
                   {view === "monthly" ? (
                     <table>
                       <caption>{t("monthlySchedule")}</caption>
@@ -624,6 +626,7 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
                       </tbody>
                     </table>
                   )}
+                  </div>
                 </div>
                 {rowCount > 6 && (
                   <button type="button" className="btn btn-ghost show-all" aria-expanded={scheduleOpen} aria-controls="schedule-body" onClick={() => setScheduleOpen(!scheduleOpen)}>
@@ -651,6 +654,9 @@ function Calculator({ lang, chooseLang, initial, currency, setCurrency }: { lang
             </div>
           )}
         </>}
+        <footer className="page-footer no-print" aria-label={t("settings")}>
+          <button type="button" className="btn btn-ghost" onClick={clearSaved}><Icon name="reset" size={18} />{t("clearSaved")}</button>
+        </footer>
       </main>
     </>
   );

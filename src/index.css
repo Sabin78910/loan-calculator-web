@@ -413,3 +413,19 @@ tr.up .diff { color: var(--coral); }
 @media (max-width: 420px) { .segmented .icon { display: none; } }
 .sync-panel .row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .sync-panel h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Design review fixes */
+.table-scroll { overflow-x: auto; max-width: 100%; border-radius: 12px; -webkit-overflow-scrolling: touch;
+  background: linear-gradient(to right, var(--surface) 30%, transparent) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--surface) 30%, transparent) right / 24px 100% no-repeat local,
+    linear-gradient(to right, var(--border-strong), transparent) left / 10px 100% no-repeat scroll,
+    linear-gradient(to left, var(--border-strong), transparent) right / 10px 100% no-repeat scroll; }
+.table-scroll:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+@media (max-width: 560px) { .table-scroll th, .table-scroll td { padding: 10px 8px; font-size: 0.82rem; } }
+.refi-card .lead { margin-bottom: 16px; }
+.input-suffix { position: relative; display: flex; align-items: center; }
+.input-suffix .field-input { padding-right: 4.2rem; }
+.input-suffix .suffix { position: absolute; right: 14px; font-size: 0.85rem; font-weight: 700; color: var(--emerald); pointer-events: none; }
+.page-footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+.toolbar { gap: 8px; }
+.toolbar > * { min-height: 44px; min-width: 44px; }
